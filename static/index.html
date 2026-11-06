@@ -5,69 +5,147 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Photophone</title>
   <meta name="description" content="Store an image as a FLAC audio file and rebuild it exactly.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Karla:wght@400;600&family=Shrikhand&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
-    <header class="intro">
-      <p class="wordmark"><span class="mark" aria-hidden="true"></span>Photophone</p>
-      <h1>Turn an image into sound. Get every pixel back.</h1>
+  <header class="sleeve">
+    <nav class="top" aria-label="Main">
+      <span class="brand"><i class="dial" aria-hidden="true"></i>Photophone</span>
+      <ul>
+        <li><a href="#deck">Try it</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#folder">Folders</a></li>
+        <li><a href="#warning">Warning</a></li>
+      </ul>
+    </nav>
+    <h1>Turn an image into sound. Get every pixel back.</h1>
+    <canvas id="tape" role="img" aria-label="A tape deck. Pixels leave an image, travel onto moving tape and become a waveform, then the tape reverses and rebuilds the image exactly."></canvas>
+    <div class="sleeve-foot">
       <p class="lede">Photophone stores a picture as a FLAC audio file and can rebuild it exactly from that file. Most images come out smaller, and JPEGs come back byte for byte.</p>
-    </header>
+      <a class="button loud" href="#deck">Load an image</a>
+    </div>
+  </header>
 
-    <canvas id="strip" class="strip" aria-hidden="true"></canvas>
+  <div class="stripes" aria-hidden="true"></div>
 
-    <section id="drop" class="drop" aria-label="Upload a file">
-      <p class="drop-title">Drop an image, a Photophone audio file or a zip of a folder</p>
-      <button id="choose" class="button primary" type="button">Choose a file</button>
-      <input id="file" type="file" hidden
-        accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff,image/gif,.flac,.wav,audio/flac,audio/wav,.zip,application/zip">
-      <p class="hint">PNG, JPEG, WebP, BMP, TIFF, GIF, FLAC or WAV, up to 40 MB and 50 megapixels. Zips up to 500 MB and 1,000 files.</p>
+  <main>
+    <section id="deck" class="deck" aria-label="Convert a file">
+      <div class="plate">
+        <i class="screw one" aria-hidden="true"></i><i class="screw two" aria-hidden="true"></i><i class="screw three" aria-hidden="true"></i><i class="screw four" aria-hidden="true"></i>
+        <span class="engraved">Input</span>
+        <div id="drop" class="drop">
+          <p class="drop-title">Drop an image, a Photophone audio file or a zip of a folder</p>
+          <button id="choose" class="button loud" type="button">Choose a file</button>
+          <input id="file" type="file" hidden
+            accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff,image/gif,.flac,.wav,audio/flac,audio/wav,.zip,application/zip">
+          <p class="hint">PNG, JPEG, WebP, BMP, TIFF, GIF, FLAC or WAV, up to 40 MB and 50 megapixels. Zips up to 500 MB and 1,000 files.</p>
+        </div>
+
+        <p id="status" class="status" role="status" hidden></p>
+        <p id="error" class="error" role="alert" hidden></p>
+
+        <section id="result" class="result" aria-label="Result" hidden>
+          <div class="panels">
+            <figure id="original-panel" class="panel">
+              <figcaption id="original-label">Original image</figcaption>
+              <div class="frame">
+                <img id="original" alt="The uploaded image">
+                <p id="no-preview" class="no-preview" hidden>This browser can't preview this format.</p>
+              </div>
+            </figure>
+
+            <figure id="audio-panel" class="panel">
+              <figcaption>Audio</figcaption>
+              <div class="frame wave">
+                <canvas id="wave" role="img" aria-label="Waveform of the audio file"></canvas>
+                <canvas id="scope" aria-hidden="true"></canvas>
+              </div>
+              <div class="player">
+                <button id="play" class="button" type="button">Play</button>
+                <p class="hint">Playback is set to a comfortable level here. The file itself doesn't change.</p>
+              </div>
+            </figure>
+
+            <figure id="restored-panel" class="panel" hidden>
+              <figcaption>Rebuilt image</figcaption>
+              <div class="frame"><img id="restored" alt="The image rebuilt from audio"></div>
+            </figure>
+          </div>
+
+          <dl id="stats" class="stats"></dl>
+          <p id="verdict" class="verdict"></p>
+
+          <div class="actions">
+            <a id="download-audio" class="button loud">Download FLAC</a>
+            <a id="download-zip" class="button loud" hidden>Download zip</a>
+            <button id="rebuild" class="button" type="button">Rebuild image from audio</button>
+            <a id="download-image" class="button" hidden>Download image</a>
+          </div>
+        </section>
+      </div>
     </section>
 
-    <p id="status" class="status" role="status" hidden></p>
-    <p id="error" class="error" role="alert" hidden></p>
-
-    <section id="result" class="result" aria-label="Result" hidden>
-      <div class="panels">
-        <figure id="original-panel" class="panel">
-          <figcaption id="original-label">Original image</figcaption>
-          <div class="frame">
-            <img id="original" alt="The uploaded image">
-            <p id="no-preview" class="no-preview" hidden>This browser can't preview this format.</p>
+    <section id="how" class="scene" aria-label="How it works">
+      <div class="stage">
+        <canvas id="method" role="img" aria-label="Diagram showing an image read, four compression methods racing, bytes becoming audio samples, and the finished FLAC being checked."></canvas>
+        <div class="caption">
+          <span class="engraved">Scroll. Sizes in the race are illustrative.</span>
+          <h2>What happens inside</h2>
+          <div class="say" id="method-say">
+            <div class="on"><strong>1. Read every pixel</strong><p>Photophone loads the image and keeps its colour profile, so the original can be rebuilt exactly.</p></div>
+            <div><strong>2. Race the methods</strong><p>It tries each method that applies: JPEG XL, prediction errors, or the file as it is. It checks each result and keeps the smallest.</p></div>
+            <div><strong>3. Bytes become sound</strong><p>Every two bytes of the winner become one 16-bit audio sample. Good compression looks random, so this sounds like loud white noise.</p></div>
+            <div><strong>4. Press the tape</strong><p>FLAC is the carrier, adding about 0.2%. Photophone decodes the result and compares it with your image before it hands you anything.</p></div>
           </div>
-        </figure>
-
-        <figure id="audio-panel" class="panel">
-          <figcaption>Audio</figcaption>
-          <div class="frame wave">
-            <canvas id="wave" role="img" aria-label="Waveform of the audio file"></canvas>
-          </div>
-          <div class="player">
-            <button id="play" class="button" type="button">Play</button>
-            <p class="hint">Playback is set to a comfortable level here. The file itself doesn't change.</p>
-          </div>
-        </figure>
-
-        <figure id="restored-panel" class="panel" hidden>
-          <figcaption>Rebuilt image</figcaption>
-          <div class="frame"><img id="restored" alt="The image rebuilt from audio"></div>
-        </figure>
-      </div>
-
-      <dl id="stats" class="stats"></dl>
-      <p id="verdict" class="verdict"></p>
-
-      <div class="actions">
-        <a id="download-audio" class="button primary">Download FLAC</a>
-        <a id="download-zip" class="button primary" hidden>Download zip</a>
-        <button id="rebuild" class="button" type="button">Rebuild image from audio</button>
-        <a id="download-image" class="button" hidden>Download image</a>
+          <div class="steps" id="method-steps"><i class="on"></i><i></i><i></i><i></i></div>
+        </div>
       </div>
     </section>
 
-    <footer>Uploaded files are deleted from the server as soon as each conversion finishes. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the image.</footer>
+    <section class="sizes">
+      <div class="inner" data-arm>
+        <span class="engraved">Measured on 23 sample images</span>
+        <h2>All 23 came out smaller</h2>
+        <p>Every image was restored exactly, and the total dropped by 30.8%. Results depend on the image, and a file that can't be compressed further grows by about 0.2%.</p>
+        <ul class="ranges">
+          <li><span>Colour PNG, with logos</span><div class="track"><i data-from="27" data-to="59"></i></div><b>27–59% smaller</b></li>
+          <li><span>Greyscale PNG</span><div class="track"><i data-from="6" data-to="45"></i></div><b>6–45% smaller</b></li>
+          <li><span>JPEG</span><div class="track"><i data-from="13" data-to="22"></i></div><b>13–22% smaller</b></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="folder" class="folder">
+      <div class="inner split" data-arm>
+        <div>
+          <span class="engraved">Batch</span>
+          <h2>Whole folders fit on one tape</h2>
+          <p>Zip a folder and drop it in. You get a new zip with the same folders, and uploading that zip turns everything back. Files that wouldn't shrink are copied unchanged.</p>
+          <p class="hint-dark">In one test, 10 files went from 27.2 MB to 18.8 MB, and all 10 came back with the same names.</p>
+        </div>
+        <canvas id="cassette" role="img" aria-label="Files sliding into a cassette whose reels turn."></canvas>
+      </div>
+    </section>
+
+    <section id="warning" class="warning">
+      <div class="inner split" data-arm>
+        <div>
+          <span class="engraved">Warning</span>
+          <h2>One lossy step and the image is gone</h2>
+          <p>Keep the audio in FLAC or WAV. MP3, AAC or re-recording it changes the samples, and the checksum refuses the file. Drag the slider to see why.</p>
+          <label class="slider" for="damage"><span>Lossy damage</span><input id="damage" type="range" min="0" max="100" value="0"></label>
+          <p class="meter-text" id="damage-text">Samples intact. Checksum matches.</p>
+        </div>
+        <canvas id="broken" role="img" aria-label="An image that turns to static as the audio is damaged."></canvas>
+      </div>
+    </section>
   </main>
+
+  <footer>Uploaded files are deleted from the server as soon as each conversion finishes. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the image.</footer>
   <script src="app.js"></script>
+  <script src="motion.js"></script>
 </body>
 </html>

@@ -38,7 +38,7 @@ def test_home_page_is_served_with_security_headers(client):
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
-@pytest.mark.parametrize("path", ["/style.css", "/app.js"])
+@pytest.mark.parametrize("path", ["/style.css", "/app.js", "/motion.js"])
 def test_page_assets_are_served(client, path):
     assert client.get(path).status_code == 200
 

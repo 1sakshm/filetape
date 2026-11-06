@@ -50,6 +50,7 @@ function stopPlayback() {
   player.audio.pause();
   player.context.close();
   player = null;
+  window.photophoneAnalyser = null;
 }
 
 function resetResult() {
@@ -178,9 +179,11 @@ async function togglePlayback(rms) {
   const context = new AudioContext();
   const gain = context.createGain();
   gain.gain.value = rms ? TARGET_RMS / rms : 1;
-  context.createMediaElementSource(audio).connect(gain).connect(context.destination);
-  audio.addEventListener("play", () => { $("play").textContent = "Pause"; });
-  audio.addEventListener("pause", () => { $("play").textContent = "Play"; });
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 1024;
+  context.createMediaElementSource(audio).connect(gain).connect(analyser).connect(context.destination);
+  audio.addEventListener("play", () => { $("play").textContent = "Pause"; window.photophoneAnalyser = analyser; });
+  audio.addEventListener("pause", () => { $("play").textContent = "Play"; window.photophoneAnalyser = null; });
   player = { audio, context };
   await audio.play();
 }
@@ -310,32 +313,6 @@ async function rebuild() {
   }
 }
 
-// A row of coloured pixels that turns into a waveform, as a picture of the idea.
-function drawStrip() {
-  const canvas = $("strip");
-  const scale = window.devicePixelRatio || 1;
-  const width = Math.round(canvas.clientWidth * scale);
-  const height = Math.round(canvas.clientHeight * scale);
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d");
-  const cell = 8 * scale;
-  const columns = Math.ceil(width / cell);
-  for (let column = 0; column < columns; column++) {
-    const progress = column / columns;
-    const wave = Math.abs(Math.sin(column * 0.41) * 0.6 + Math.sin(column * 0.13) * 0.4);
-    const size = height * (1 - progress) + Math.max(cell, height * wave) * progress;
-    const hue = (column * 2.6 + Math.sin(column * 0.2) * 40) % 360;
-    context.fillStyle = `hsl(${hue} 62% 55%)`;
-    const rows = Math.ceil(size / cell);
-    for (let row = 0; row < rows; row++) {
-      const y = (height - rows * cell) / 2 + row * cell;
-      context.globalAlpha = 0.55 + 0.45 * Math.abs(Math.sin(column * 7.3 + row * 3.1));
-      context.fillRect(column * cell, y, cell - scale, cell - scale);
-    }
-  }
-}
-
 const drop = $("drop");
 ["dragenter", "dragover"].forEach((name) => drop.addEventListener(name, (event) => {
   event.preventDefault();
@@ -363,5 +340,3 @@ $("original").addEventListener("error", () => {
 });
 window.addEventListener("dragover", (event) => event.preventDefault());
 window.addEventListener("drop", (event) => event.preventDefault());
-window.addEventListener("resize", drawStrip);
-drawStrip();
