@@ -7,7 +7,7 @@
   --bone-dark: #d9cfbf;
   --accent: #ff4a12;
   --poster: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
-  --serif: "Bodoni Moda", Georgia, "Times New Roman", serif;
+  --serif: "DM Serif Display", Georgia, "Times New Roman", serif;
   --body: "Newsreader", Georgia, serif;
 }
 
@@ -19,7 +19,7 @@ canvas { display: block; }
 :focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
 [hidden] { display: none !important; }
 p { max-width: 36em; }
-em { font-family: var(--serif); font-style: italic; font-weight: 500; letter-spacing: -0.02em; text-transform: none; }
+em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; }
 
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; font: 800 1.125rem var(--poster); letter-spacing: 0.05em; text-transform: uppercase; }
 .top ul { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 0; padding: 0; list-style: none; }
