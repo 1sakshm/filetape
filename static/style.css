@@ -114,11 +114,6 @@ h2 em { display: block; margin-top: 8px; font-size: 0.62em; line-height: 1; }
 .folder h2 em { color: var(--fire); }
 .folder .engraved { color: var(--fire); }
 
-.warning { padding: 80px 20px; background: var(--bone); }
-.slider { display: grid; gap: 8px; max-width: 420px; margin-top: 18px; font: 800 1rem var(--poster); letter-spacing: 0.08em; text-transform: uppercase; }
-.slider input { width: 100%; accent-color: var(--fire); }
-.meter-text { min-height: 3em; font-weight: 600; }
-
 footer { padding: 24px 20px; background: var(--black); color: var(--bone); font-size: 1rem; }
 
 @media (max-width: 820px) {

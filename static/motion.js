@@ -280,45 +280,6 @@
     };
   })();
 
-  // What lossy audio does: the slider corrupts the samples, and the image falls apart.
-  const broken = (() => {
-    const canvas = $("broken"), input = $("damage"), label = $("damage-text"), COLS = 48, ROWS = 36, cells = picture(COLS, ROWS);
-    let auto = 0, touched = false;
-    input.addEventListener("input", () => { touched = true; });
-    const MESSAGES = [[0, "Samples intact. Checksum matches."], [1, "A few samples changed. The checksum no longer matches, so Filetape refuses the file."], [50, "This is what MP3 or AAC does. The bytes inside the audio are no longer the same bytes."], [85, "Nothing left to rebuild."]];
-    return (t) => {
-      const { g, W, H } = fit(canvas);
-      if (!touched && !still && document.visibilityState === "visible") { auto = 50 + 50 * Math.sin(t * 0.5 - 1.57); input.value = Math.round(auto); }
-      const d = Number(input.value) / 100;
-      label.textContent = MESSAGES.filter(([at]) => at <= input.value).pop()[1];
-      g.fillStyle = C.ink; g.fillRect(0, 0, W, H);
-      const s = Math.min(W / COLS, H * 0.74 / ROWS), ox = (W - s * COLS) / 2, oy = 6;
-      for (let r = 0; r < ROWS; r++) {
-        const tear = d * d * (noise(r + Math.floor(t * 12)) - 0.5) * W * 0.5;
-        for (let c = 0; c < COLS; c++) {
-          const n = noise(r * 61 + c * 13 + Math.floor(t * 18) * 7);
-          g.fillStyle = n < d * 1.1 ? (noise(n * 91) > 0.5 ? "#a89c8d" : C.ink) : cells[r * COLS + c];
-          g.fillRect(ox + ((c * s + tear) % (s * COLS) + s * COLS) % (s * COLS), oy + r * s, s, s);
-        }
-      }
-      const baseY = oy + ROWS * s + (H - oy - ROWS * s) / 2;
-      g.strokeStyle = C.amber; g.lineWidth = 2; g.beginPath();
-      for (let x = 0; x < W; x += 3) {
-        const v = Math.sin(x * 0.05 + t * 2) * 0.5 + (noise(x) - 0.5) * (1 - d * 0.85);
-        const y = baseY + v * (H - oy - ROWS * s) * 0.4;
-        if (x) g.lineTo(x, y); else g.moveTo(x, y);
-      }
-      g.stroke();
-      if (d > 0.005) {
-        g.save(); g.translate(W / 2, oy + ROWS * s / 2);
-        const w = Math.min(W * 0.7, 260);
-        g.fillStyle = C.amber; g.fillRect(-w / 2, -22, w, 44);
-        say(g, "CHECKSUM FAILED", 0, 6, C.ink, "center", `800 28px ${MONO}`);
-        g.restore();
-      }
-    };
-  })();
-
   // A live spectrum over the waveform while the audio plays.
   const scope = (() => {
     const canvas = $("scope");
@@ -359,7 +320,7 @@
 
   const visible = new Map();
   const watch = new IntersectionObserver((entries) => entries.forEach((e) => visible.set(e.target, e.isIntersecting)), { rootMargin: "100px" });
-  const parts = [[$("tape"), tape], [$("how"), method], [$("cassette"), cassette], [$("broken"), broken], [$("deck"), scope]];
+  const parts = [[$("tape"), tape], [$("how"), method], [$("cassette"), cassette], [$("deck"), scope]];
   parts.forEach(([node]) => watch.observe(node));
   function frame(now) {
     const t = now / 1000;

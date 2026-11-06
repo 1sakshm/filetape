@@ -18,7 +18,6 @@
         <li><a href="#deck">Try it</a></li>
         <li><a href="#how">How it works</a></li>
         <li><a href="#folder">Folders</a></li>
-        <li><a href="#warning">Warning</a></li>
       </ul>
     </nav>
     <h1><span>Turn any file into sound.</span> <em>Get every byte back.</em></h1>
@@ -133,18 +132,6 @@
       </div>
     </section>
 
-    <section id="warning" class="warning">
-      <div class="inner split" data-arm>
-        <div>
-          <span class="engraved">Warning</span>
-          <h2>One lossy step <em>and the file is gone</em></h2>
-          <p>Keep the audio in FLAC or WAV. MP3, AAC or re-recording it changes the samples, and the checksum refuses the file. Drag the slider to see why.</p>
-          <label class="slider" for="damage"><span>Lossy damage</span><input id="damage" type="range" min="0" max="100" value="0"></label>
-          <p class="meter-text" id="damage-text">Samples intact. Checksum matches.</p>
-        </div>
-        <canvas id="broken" role="img" aria-label="A picture that turns to static as the audio is damaged."></canvas>
-      </div>
-    </section>
   </main>
 
   <footer>Uploaded files are deleted from the server as soon as each conversion finishes. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the file.</footer>
