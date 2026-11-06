@@ -1,7 +1,7 @@
 [project]
 name = "photophone"
 version = "0.1.0"
-description = "Store images losslessly as FLAC audio"
+description = "Turn any file into FLAC audio and get it back exactly"
 requires-python = ">=3.10"
 dependencies = ["flask", "numpy", "pillow", "pillow-jxl-plugin", "soundfile>=0.13", "waitress"]
 

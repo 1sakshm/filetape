@@ -33,7 +33,7 @@ def upload(client, path, data, name="photo.png"):
 def test_home_page_is_served_with_security_headers(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Turn an image into sound" in response.data
+    assert b"Turn any file into sound" in response.data
     assert "default-src 'none'" in response.headers["Content-Security-Policy"]
     assert response.headers["X-Content-Type-Options"] == "nosniff"
 
@@ -62,11 +62,28 @@ def test_encode_then_decode_restores_pixels_and_profile(client):
     assert restored.info["icc_profile"] == profile
 
 
-def test_not_an_image_gives_a_clean_error(client):
-    response = upload(client, "/api/encode", b"plain text", "notes.txt")
-    assert response.status_code == 400
-    assert response.json["error"] == "This file is not a supported image."
-    assert tempfile.gettempdir().lower() not in response.get_data(as_text=True).lower()
+@pytest.mark.parametrize("name, data", [
+    ("notes.txt", b"plain text " * 500),
+    ("report.final.pdf", bytes(range(256)) * 20),
+    ("song.mp3", b"ID3" + bytes(5000)),
+    ("empty.dat", b""),
+    ("Résumé 2026.docx", b"text"),
+])
+def test_any_file_comes_back_with_its_name(client, name, data):
+    encoded = upload(client, "/api/encode", data, name)
+    assert encoded.status_code == 200
+    assert encoded.mimetype == "audio/flac"
+    assert json.loads(encoded.headers["X-Photophone-Result"])["name"] == name
+    decoded = upload(client, "/api/decode", encoded.data, "audio.flac")
+    assert decoded.status_code == 200
+    assert decoded.data == data
+    assert json.loads(decoded.headers["X-Photophone-Result"])["name"] == name
+
+
+def test_hostile_stored_name_is_reduced_to_a_file_name(client):
+    encoded = upload(client, "/api/encode", b"payload " * 100, "..\\..\\evil.txt")
+    decoded = upload(client, "/api/decode", encoded.data, "audio.flac")
+    assert json.loads(decoded.headers["X-Photophone-Result"])["name"] == "evil.txt"
 
 
 def test_not_audio_gives_a_clean_error(client):
@@ -75,13 +92,13 @@ def test_not_audio_gives_a_clean_error(client):
     assert response.json["error"] == "This file is not a readable audio file."
 
 
-def test_refused_image_does_not_block_cleanup(client):
+def test_animated_image_comes_back_exactly(client):
     frames = [Image.fromarray(np.full((8, 8), value, dtype=np.uint8)) for value in (0, 255)]
     buffer = io.BytesIO()
     frames[0].save(buffer, format="GIF", save_all=True, append_images=frames[1:])
-    response = upload(client, "/api/encode", buffer.getvalue(), "moving.gif")
-    assert response.status_code == 400
-    assert "animated" in response.json["error"]
+    encoded = upload(client, "/api/encode", buffer.getvalue(), "moving.gif")
+    assert encoded.status_code == 200
+    assert upload(client, "/api/decode", encoded.data, "a.flac").data == buffer.getvalue()
 
 
 def test_missing_file_is_reported(client):
@@ -97,11 +114,11 @@ def test_oversized_upload_is_refused(client, monkeypatch):
     assert "MB" in response.json["error"]
 
 
-def test_too_many_pixels_is_refused(client, monkeypatch):
+def test_too_many_pixels_is_carried_as_a_file(client, monkeypatch):
     monkeypatch.setattr(web, "MAX_PIXELS", 100)
     response = upload(client, "/api/encode", png_bytes())
-    assert response.status_code == 400
-    assert "too large" in response.json["error"]
+    assert response.status_code == 200
+    assert json.loads(response.headers["X-Photophone-Result"])["method"] == "data"
 
 
 def test_unknown_path_returns_json(client):
@@ -174,11 +191,16 @@ def test_batch_keeps_an_image_it_cannot_shrink(client):
     assert unpack(response) == {"noise.png": source}
 
 
-def test_batch_copies_a_broken_image_and_names_it(client):
-    response = batch(client, {"bad.png": b"not really a png", "good.png": smooth_png()})
-    result = result_of(response)
-    assert (result["compressed"], result["copied"], result["problems"]) == (1, 1, ["bad.png"])
-    assert unpack(response)["bad.png"] == b"not really a png"
+def test_batch_carries_any_file_and_brings_it_back(client):
+    files = {"docs/notes.txt": b"plain text " * 400, "bad.png": b"not really a png" * 40, "good.png": smooth_png()}
+    packed = batch(client, files)
+    assert result_of(packed)["compressed"] == 3
+    assert "docs/notes.txt.flac" in unpack(packed)
+    restored = upload(client, "/api/batch", packed.data, "folder.photophone.zip")
+    contents = unpack(restored)
+    assert contents["docs/notes.txt"] == files["docs/notes.txt"]
+    assert contents["bad.png"] == files["bad.png"]
+    assert np.array_equal(np.asarray(Image.open(io.BytesIO(contents["good.png"]))), np.asarray(Image.open(io.BytesIO(files["good.png"]))))
 
 
 def test_batch_copies_ordinary_music(client):

@@ -1,8 +1,9 @@
-"""Store images losslessly as FLAC audio, and restore them pixel for pixel."""
+"""Store any file as FLAC audio and restore it exactly, with extra compression for images."""
 
 import argparse
 import dataclasses
 import io
+import lzma
 import math
 import os
 import shutil
@@ -34,6 +35,7 @@ KIND_PIXELS = 2  # lossless JPEG XL of the pixels
 KIND_FILE = 3  # the original file, unchanged
 KIND_JPEG_SPLIT = 4  # as KIND_JPEG, with the profile segments kept in the metadata
 KIND_TRUEPIX = 5  # the Truepix codec's own file
+KIND_DATA = 6  # any other file, with its name
 
 TRUEPIX_MAGIC = b"TPX1"
 TRUEPIX_HEADER = struct.Struct("<4sIIBBI")  # magic, width, height, channels, tiles per side, CRC-32
@@ -43,6 +45,10 @@ JXL_EFFORT = 9
 JXL_MAX_EFFORT = 10
 JPEG_SEGMENT = struct.Struct("<II")  # offset in the original file, length
 
+DATA_HEADER = struct.Struct("<BQH")  # method, original size, name length
+DATA_RAW = 0
+DATA_LZMA = 1
+MAX_NAME_BYTES = 1024
 SUFFIXES = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp", "BMP": ".bmp", "TIFF": ".tif", "GIF": ".gif"}
 ALLOWED_SUFFIXES = {
     ".png": (".png",),
@@ -63,6 +69,7 @@ class Restored:
     """Either the original file's bytes, or pixels to save as a PNG."""
 
     file: bytes | None = None
+    name: str | None = None  # set for any file that isn't an image
     pixels: np.ndarray | None = None
     mode: str | None = None
     icc_profile: bytes | None = None
@@ -176,6 +183,45 @@ def unpack_icc(packed, path):
     return icc_profile
 
 
+def safe_name(name):
+    """Keep only a plain file name, because a name read from audio can't be trusted."""
+    name = name.replace("\\", "/").rsplit("/", 1)[-1]
+    name = "".join(ch for ch in name if ch.isprintable() and ch not in '<>:"|?*').strip(" .")
+    return name or "file"
+
+
+def pack_data(original, name):
+    """Compress a file if that helps, and keep its name alongside it."""
+    title = safe_name(name).encode("utf-8", "ignore")[:MAX_NAME_BYTES]
+    squeezed = lzma.compress(original, preset=6)
+    method, body = (DATA_LZMA, squeezed) if len(squeezed) < len(original) else (DATA_RAW, original)
+    return DATA_HEADER.pack(method, len(original), len(title)) + title + body
+
+
+def unpack_data(payload, path, limit=None):
+    """Return (name, bytes), checking what the file would demand before expanding it."""
+    if len(payload) < DATA_HEADER.size:
+        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+    method, size, length = DATA_HEADER.unpack_from(payload)
+    if limit and size > limit:
+        raise PhotophoneError(f"{path} would expand to more than the limit of {limit // 1024 ** 2} MB")
+    start = DATA_HEADER.size + length
+    title, body = payload[DATA_HEADER.size:start], payload[start:]
+    if method == DATA_RAW:
+        data = body
+    elif method == DATA_LZMA:
+        try:
+            inflater = lzma.LZMADecompressor()
+            data = inflater.decompress(body, max_length=size + 1)
+        except lzma.LZMAError as error:
+            raise PhotophoneError(f"{path} is corrupted: checksum mismatch") from error
+    else:
+        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+    if len(data) != size:
+        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+    return safe_name(title.decode("utf-8", "replace")), data
+
+
 def write_payload(path, kind, payload, crc, icc_profile=None):
     """Store bytes as mono samples, after a header kept readable as small values."""
     packed = zlib.compress(icc_profile, 9) if icc_profile else b""
@@ -250,6 +296,10 @@ def read_payload(samples, path, max_pixels=None):
         if kind == KIND_FILE:
             restored = Restored(file=payload)
             actual = zlib.crc32(payload)
+        elif kind == KIND_DATA:
+            name, data = unpack_data(payload, path, max_pixels and max_pixels * 4)
+            restored = Restored(file=data, name=name)
+            actual = zlib.crc32(data)
         elif kind in (KIND_JPEG, KIND_JPEG_SPLIT):
             is_jpeg, _, data, _, _ = pillow_jxl.Decoder()(payload)
             if not is_jpeg:
@@ -455,16 +505,25 @@ def matches_source(restored, original, pixels, icc_profile):
     return np.array_equal(restored.pixels, pixels) and restored.icc_profile == icc_profile
 
 
-def encode(source, output, force=False, max_pixels=None, effort=JXL_EFFORT):
+def encode(source, output, force=False, max_pixels=None, effort=JXL_EFFORT, name=None):
     """Try each method, keep the smallest verified file and return a summary."""
     check_output(output, force)
-    pixels, mode, icc_profile, image_format = load_image(source, max_pixels)
     original = source.read_bytes()
-    height, width, _ = pixels.shape
-    writers = {"stored": lambda path: write_stored(path, original)}
+    try:
+        pixels, mode, icc_profile, image_format = load_image(source, max_pixels)
+        height, width, _ = pixels.shape
+    except PhotophoneError:  # Not an image we can model, so it is carried as plain data.
+        pixels = mode = icc_profile = None
+        image_format = "data"
+        height = width = 0
+    data_name = safe_name(name or source.name)
+    if pixels is None:
+        writers = {"data": lambda path: write_payload(path, KIND_DATA, pack_data(original, data_name), zlib.crc32(original))}
+    else:
+        writers = {"stored": lambda path: write_stored(path, original)}
     if image_format == "JPEG":
         writers["jpeg"] = lambda path: write_jpeg(path, original, width, height, mode, effort)
-    else:
+    elif pixels is not None:
         writers["jxl"] = lambda path: write_jxl_pixels(path, pixels, mode, icc_profile, effort)
         writers["residual"] = lambda path: write_audio(path, pixels, mode, icc_profile)
         if effort >= JXL_MAX_EFFORT:  # Much slower, so only when the smallest file is wanted.
@@ -503,6 +562,7 @@ def encode(source, output, force=False, max_pixels=None, effort=JXL_EFFORT):
         "method": best_method,
         "seconds": frames / SAMPLE_RATE,
         "icc_profile": bool(icc_profile),
+        "name": data_name if pixels is None else None,
     }
 
 
@@ -515,6 +575,18 @@ def file_details(data):
 def decode(source, output=None, force=False, max_pixels=None):
     """Restore the original and return a summary. Without an output, name it after the source."""
     restored = restore(source, max_pixels)
+    if restored.name is not None:
+        target = Path(restored.name)
+        output = output or source.with_name(f"{target.stem}.decoded{target.suffix}")
+        check_output(output, force)
+        temp = temp_path_for(output)
+        try:
+            Path(temp).write_bytes(restored.file)
+            os.replace(temp, output)
+        finally:
+            if os.path.exists(temp):
+                os.remove(temp)
+        return {"path": output, "name": restored.name, "size": len(restored.file), "suffix": target.suffix}
     if restored.file is not None:
         suffix, image = file_details(restored.file)
         width, height = image.size
@@ -554,7 +626,8 @@ def decode(source, output=None, force=False, max_pixels=None):
 def report_encode(source, output, result):
     before, after = result["before"], result["after"]
     print(f"{source} -> {output}")
-    print(f"{before:,} -> {after:,} bytes ({(after - before) / before:+.1%}), pixels verified")
+    change = (after - before) / before if before else 0
+    print(f"{before:,} -> {after:,} bytes ({change:+.1%}), {'bytes' if result['name'] else 'pixels'} verified")
     if after >= before:
         print("warning: the audio file is not smaller than the original", file=sys.stderr)
 
@@ -563,8 +636,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="photophone", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     for name, summary in (
-        ("encode", "image to FLAC (default output: INPUT with a .flac suffix)"),
-        ("decode", "FLAC to image (default output: INPUT.decoded.png, or .jpg for a JPEG)"),
+        ("encode", "any file to FLAC (default output: INPUT with a .flac suffix)"),
+        ("decode", "FLAC back to the original file (default output: NAME.decoded.EXTENSION)"),
     ):
         command = commands.add_parser(name, help=summary)
         command.add_argument("input", type=Path)

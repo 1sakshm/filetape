@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Photophone</title>
-  <meta name="description" content="Store an image as a FLAC audio file and rebuild it exactly.">
+  <meta name="description" content="Turn any file into a FLAC audio file and get it back exactly.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Karla:wght@400;600&family=Shrikhand&display=swap">
@@ -21,11 +21,11 @@
         <li><a href="#warning">Warning</a></li>
       </ul>
     </nav>
-    <h1>Turn an image into sound. Get every pixel back.</h1>
-    <canvas id="tape" role="img" aria-label="A tape deck. Pixels leave an image, travel onto moving tape and become a waveform, then the tape reverses and rebuilds the image exactly."></canvas>
+    <h1>Turn any file into sound. Get every byte back.</h1>
+    <canvas id="tape" role="img" aria-label="A tape deck. Data leaves an image, travel onto moving tape and become a waveform, then the tape reverses and rebuilds the image exactly."></canvas>
     <div class="sleeve-foot">
-      <p class="lede">Photophone stores a picture as a FLAC audio file and can rebuild it exactly from that file. Most images come out smaller, and JPEGs come back byte for byte.</p>
-      <a class="button loud" href="#deck">Load an image</a>
+      <p class="lede">Photophone turns any file into a FLAC audio file and rebuilds it exactly, with its original name. Documents, code, programs and images: if it's a file, it can be sound.</p>
+      <a class="button loud" href="#deck">Load a file</a>
     </div>
   </header>
 
@@ -37,11 +37,10 @@
         <i class="screw one" aria-hidden="true"></i><i class="screw two" aria-hidden="true"></i><i class="screw three" aria-hidden="true"></i><i class="screw four" aria-hidden="true"></i>
         <span class="engraved">Input</span>
         <div id="drop" class="drop">
-          <p class="drop-title">Drop an image, a Photophone audio file or a zip of a folder</p>
+          <p class="drop-title">Drop any file, a Photophone audio file or a zip of a folder</p>
           <button id="choose" class="button loud" type="button">Choose a file</button>
-          <input id="file" type="file" hidden
-            accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff,image/gif,.flac,.wav,audio/flac,audio/wav,.zip,application/zip">
-          <p class="hint">PNG, JPEG, WebP, BMP, TIFF, GIF, FLAC or WAV, up to 40 MB and 50 megapixels. Zips up to 500 MB and 1,000 files.</p>
+          <input id="file" type="file" hidden>
+          <p class="hint">Any file up to 40 MB. Images up to 50 megapixels get extra compression. Zips up to 500 MB and 1,000 files.</p>
         </div>
 
         <p id="status" class="status" role="status" hidden></p>
@@ -81,8 +80,8 @@
           <div class="actions">
             <a id="download-audio" class="button loud">Download FLAC</a>
             <a id="download-zip" class="button loud" hidden>Download zip</a>
-            <button id="rebuild" class="button" type="button">Rebuild image from audio</button>
-            <a id="download-image" class="button" hidden>Download image</a>
+            <button id="rebuild" class="button" type="button">Rebuild from audio</button>
+            <a id="download-image" class="button" hidden>Download file</a>
           </div>
         </section>
       </div>
@@ -90,15 +89,15 @@
 
     <section id="how" class="scene" aria-label="How it works">
       <div class="stage">
-        <canvas id="method" role="img" aria-label="Diagram showing an image read, four compression methods racing, bytes becoming audio samples, and the finished FLAC being checked."></canvas>
+        <canvas id="method" role="img" aria-label="Diagram showing a file read, compression methods racing, bytes becoming audio samples, and the finished FLAC being checked."></canvas>
         <div class="caption">
-          <span class="engraved">Scroll. Sizes in the race are illustrative.</span>
+          <span class="engraved">Scroll. Sizes in the race are illustrative, and show an image.</span>
           <h2>What happens inside</h2>
           <div class="say" id="method-say">
-            <div class="on"><strong>1. Read every pixel</strong><p>Photophone loads the image and keeps its colour profile, so the original can be rebuilt exactly.</p></div>
-            <div><strong>2. Race the methods</strong><p>It tries each method that applies: JPEG XL, prediction errors, or the file as it is. It checks each result and keeps the smallest.</p></div>
+            <div class="on"><strong>1. Read the file</strong><p>Photophone reads every byte and notes the name. If it's an image, it also reads the pixels and the colour profile.</p></div>
+            <div><strong>2. Race the methods</strong><p>Images race JPEG XL, prediction errors and the file as it is. Any other file is compressed with LZMA, or stored as it is if that's smaller.</p></div>
             <div><strong>3. Bytes become sound</strong><p>Every two bytes of the winner become one 16-bit audio sample. Good compression looks random, so this sounds like loud white noise.</p></div>
-            <div><strong>4. Press the tape</strong><p>FLAC is the carrier, adding about 0.2%. Photophone decodes the result and compares it with your image before it hands you anything.</p></div>
+            <div><strong>4. Press the tape</strong><p>FLAC is the carrier, adding about 0.2%. Photophone decodes the result and compares it with your file before it hands you anything.</p></div>
           </div>
           <div class="steps" id="method-steps"><i class="on"></i><i></i><i></i><i></i></div>
         </div>
@@ -107,13 +106,17 @@
 
     <section class="sizes">
       <div class="inner" data-arm>
-        <span class="engraved">Measured on 23 sample images</span>
-        <h2>All 23 came out smaller</h2>
-        <p>Every image was restored exactly, and the total dropped by 30.8%. Results depend on the image, and a file that can't be compressed further grows by about 0.2%.</p>
+        <span class="engraved">Measured, and every file came back exact</span>
+        <h2>What shrinks, and by how much</h2>
+        <p>Text and code shrink most. On 23 sample images the total dropped by 30.8%. Files that are already compressed, like zips, MP3s and videos, don't shrink and grow slightly.</p>
         <ul class="ranges">
           <li><span>Colour PNG, with logos</span><div class="track"><i data-from="27" data-to="59"></i></div><b>27–59% smaller</b></li>
           <li><span>Greyscale PNG</span><div class="track"><i data-from="6" data-to="45"></i></div><b>6–45% smaller</b></li>
           <li><span>JPEG</span><div class="track"><i data-from="13" data-to="22"></i></div><b>13–22% smaller</b></li>
+          <li><span>Text and code</span><div class="track"><i data-from="64" data-to="78"></i></div><b>64–78% smaller</b></li>
+          <li><span>Programs</span><div class="track"><i data-from="70" data-to="72"></i></div><b>About 71% smaller</b></li>
+          <li><span>One PDF</span><div class="track"><i data-from="10" data-to="12"></i></div><b>About 11% smaller</b></li>
+          <li><span>One zip</span><div class="track"></div><b>0.6% larger</b></li>
         </ul>
       </div>
     </section>
@@ -123,7 +126,7 @@
         <div>
           <span class="engraved">Batch</span>
           <h2>Whole folders fit on one tape</h2>
-          <p>Zip a folder and drop it in. You get a new zip with the same folders, and uploading that zip turns everything back. Files that wouldn't shrink are copied unchanged.</p>
+          <p>Zip a folder and drop it in. You get a new zip with the same folders, and uploading that zip turns everything back. Every file inside gets the same treatment, and anything that wouldn't shrink is copied unchanged.</p>
           <p class="hint-dark">In one test, 10 files went from 27.2 MB to 18.8 MB, and all 10 came back with the same names.</p>
         </div>
         <canvas id="cassette" role="img" aria-label="Files sliding into a cassette whose reels turn."></canvas>
@@ -134,17 +137,17 @@
       <div class="inner split" data-arm>
         <div>
           <span class="engraved">Warning</span>
-          <h2>One lossy step and the image is gone</h2>
+          <h2>One lossy step and the file is gone</h2>
           <p>Keep the audio in FLAC or WAV. MP3, AAC or re-recording it changes the samples, and the checksum refuses the file. Drag the slider to see why.</p>
           <label class="slider" for="damage"><span>Lossy damage</span><input id="damage" type="range" min="0" max="100" value="0"></label>
           <p class="meter-text" id="damage-text">Samples intact. Checksum matches.</p>
         </div>
-        <canvas id="broken" role="img" aria-label="An image that turns to static as the audio is damaged."></canvas>
+        <canvas id="broken" role="img" aria-label="A picture that turns to static as the audio is damaged."></canvas>
       </div>
     </section>
   </main>
 
-  <footer>Uploaded files are deleted from the server as soon as each conversion finishes. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the image.</footer>
+  <footer>Uploaded files are deleted from the server as soon as each conversion finishes. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the file.</footer>
   <script src="app.js"></script>
   <script src="motion.js"></script>
 </body>

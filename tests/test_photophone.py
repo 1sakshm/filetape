@@ -94,35 +94,29 @@ def test_bilevel_image(tmp_path):
 
 
 @pytest.mark.parametrize("color_type,channels", [(0, 1), (2, 3), (4, 2), (6, 4)])
-def test_16_bit_images_are_refused(tmp_path, capsys, color_type, channels):
+def test_16_bit_images_are_carried_as_files(tmp_path, color_type, channels):
     source = tmp_path / "in.png"
     write_16bit_png(source, color_type, channels)
-    assert photophone.main(["encode", str(source), "-o", str(tmp_path / "a.flac")]) == 1
-    assert "16-bit" in capsys.readouterr().err
-    assert not (tmp_path / "a.flac").exists()
+    carries_exactly(tmp_path, source)
 
 
-def test_animated_image_is_refused(tmp_path, capsys):
+def test_animated_image_is_carried_as_a_file(tmp_path):
     source = tmp_path / "in.gif"
     frames = [Image.fromarray(noise(8, 8)) for _ in range(2)]
     frames[0].save(source, save_all=True, append_images=frames[1:])
-    assert photophone.main(["encode", str(source), "-o", str(tmp_path / "a.flac")]) == 1
-    assert "animated" in capsys.readouterr().err
+    carries_exactly(tmp_path, source)
 
 
-def test_cmyk_is_refused(tmp_path, capsys):
+def test_cmyk_is_carried_as_a_file(tmp_path):
     source = tmp_path / "in.jpg"
     Image.fromarray(noise(8, 8, 3)).convert("CMYK").save(source)
-    assert photophone.main(["encode", str(source), "-o", str(tmp_path / "a.flac")]) == 1
-    assert "CMYK" in capsys.readouterr().err
+    carries_exactly(tmp_path, source)
 
 
-def test_broken_image_is_reported(tmp_path, capsys):
+def test_broken_image_is_carried_as_a_file(tmp_path):
     source = tmp_path / "in.png"
-    Image.fromarray(noise(64, 64, 3)).save(source)
-    source.write_bytes(source.read_bytes()[:500])
-    assert photophone.main(["encode", str(source), "-o", str(tmp_path / "a.flac")]) == 1
-    assert "cannot read" in capsys.readouterr().err
+    source.write_bytes(b"not an image at all")
+    carries_exactly(tmp_path, source)
 
 
 def test_missing_output_folder_is_reported(tmp_path, capsys):
@@ -323,11 +317,11 @@ def test_files_from_before_colour_profiles_still_decode(tmp_path):
     assert np.array_equal(photophone.read_audio(audio)[0], array)
 
 
-def test_pixel_limit_is_enforced(tmp_path):
+def test_pixel_limit_sends_large_images_down_the_file_path(tmp_path):
     source, audio = tmp_path / "in.png", tmp_path / "a.flac"
     Image.fromarray(gradient(32, 32, 3)).save(source)
-    with pytest.raises(photophone.PhotophoneError, match="too large"):
-        photophone.encode(source, audio, max_pixels=100)
+    assert photophone.encode(source, audio, max_pixels=100)["method"] == "data"
+    audio.unlink()
     photophone.write_audio(audio, gradient(32, 32, 3), "RGB")
     with pytest.raises(photophone.PhotophoneError, match="too large"):
         photophone.read_audio(audio, max_pixels=100)
@@ -493,3 +487,68 @@ def test_truepix_dimensions_are_checked_before_decoding(tmp_path, monkeypatch):
     monkeypatch.setattr(photophone, "run_truepix", lambda *_: pytest.fail("decoded a file over the limit"))
     with pytest.raises(photophone.PhotophoneError, match="too large"):
         photophone.restore(audio, max_pixels=1000)
+
+
+def carries_exactly(tmp_path, source):
+    audio, back = tmp_path / "a.flac", tmp_path / "back.bin"
+    assert photophone.main(["encode", str(source), "-o", str(audio)]) == 0
+    assert photophone.main(["decode", str(audio), "-o", str(back)]) == 0
+    assert back.read_bytes() == source.read_bytes()
+
+
+@pytest.mark.parametrize("name, data", [
+    ("notes.txt", b"plain text " * 1000),
+    ("already.zip", bytes(np.random.default_rng(3).integers(0, 256, 5000, dtype=np.uint8))),
+    ("empty.bin", b""),
+    ("odd", b"\x00\xff" * 7 + b"\x01"),
+    ("many.dots.tar.gz", b"x" * 301),
+])
+def test_any_file_round_trip(tmp_path, name, data):
+    source = tmp_path / name
+    source.write_bytes(data)
+    carries_exactly(tmp_path, source)
+
+
+def test_decode_names_the_file_after_the_original(tmp_path):
+    source = tmp_path / "report.final.pdf"
+    source.write_bytes(b"pdf" * 200)
+    audio = tmp_path / "a.flac"
+    photophone.encode(source, audio)
+    assert photophone.decode(audio)["path"].name == "report.final.decoded.pdf"
+
+
+def test_stored_name_cannot_leave_the_folder(tmp_path):
+    source, audio = tmp_path / "in.bin", tmp_path / "a.flac"
+    source.write_bytes(b"data" * 100)
+    photophone.encode(source, audio, name="../../evil.txt")
+    result = photophone.decode(audio)
+    assert result["path"].parent == tmp_path
+    assert result["name"] == "evil.txt"
+
+
+def test_expansion_bomb_is_refused_before_expanding(tmp_path):
+    audio = tmp_path / "a.flac"
+    payload = photophone.pack_data(b"\0" * 10_000_000, "bomb.bin")
+    photophone.write_payload(audio, photophone.KIND_DATA, payload, zlib.crc32(b"\0" * 10_000_000))
+    assert len(payload) < 5000
+    with pytest.raises(photophone.PhotophoneError, match="limit"):
+        photophone.restore(audio, max_pixels=1000)
+
+
+def test_lying_size_is_refused(tmp_path):
+    audio = tmp_path / "a.flac"
+    payload = bytearray(photophone.pack_data(b"hello world " * 1000, "a.txt"))
+    payload[1] = (payload[1] + 1) & 255
+    photophone.write_payload(audio, photophone.KIND_DATA, bytes(payload), zlib.crc32(b"hello world " * 1000))
+    with pytest.raises(photophone.PhotophoneError, match="corrupted"):
+        photophone.restore(audio)
+
+
+def test_damaged_data_is_refused(tmp_path):
+    audio = tmp_path / "a.flac"
+    original = bytes(range(256)) * 40
+    payload = bytearray(photophone.pack_data(original, "a.bin"))
+    payload[-1] ^= 1
+    photophone.write_payload(audio, photophone.KIND_DATA, bytes(payload), zlib.crc32(original))
+    with pytest.raises(photophone.PhotophoneError, match="corrupted"):
+        photophone.restore(audio)

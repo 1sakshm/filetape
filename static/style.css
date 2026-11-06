@@ -111,6 +111,7 @@ p { max-width: 40em; }
 .track { position: relative; height: 26px; background: repeating-linear-gradient(90deg, rgba(27, 14, 7, 0.28) 0 2px, transparent 2px 10%); }
 .track i { position: absolute; top: 0; bottom: 0; background: var(--red); transform-origin: left; transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.2, 1); }
 .ranges b { text-align: right; }
+.ranges li { grid-template-columns: 210px minmax(0, 1fr) 150px; }
 .armed .track i { transform: scaleX(0); }
 
 .folder { padding: 72px 20px; background: var(--olive); color: var(--cream); }

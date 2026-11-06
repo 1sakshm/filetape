@@ -5,6 +5,7 @@ const MAX_BATCH_BYTES = 500 * 1024 * 1024;
 const TARGET_RMS = 0.1; // Playback level, as a fraction of full scale.
 const METHOD_NOTES = {
   jpeg: "Decoding rebuilds the original JPEG byte for byte, including its metadata.",
+  data: "Decoding rebuilds the original file byte for byte, with its name. Every byte was checked.",
   jxl: "Every pixel was checked against the original.",
   residual: "Every pixel was checked against the original.",
   stored: "Decoding returns the original file unchanged.",
@@ -97,6 +98,17 @@ function addStat(label, value, className) {
 
 function showRestored(blob, result) {
   const url = objectUrl(blob);
+  if (result.name) {
+    const link = $("download-image");
+    link.href = url;
+    link.download = result.name;
+    link.textContent = `Download ${result.name}`;
+    link.hidden = false;
+    $("rebuild").hidden = true;
+    $("verdict").textContent = `Rebuilt ${result.name}. The checksum matches the original.`;
+    return;
+  }
+  $("download-image").textContent = "Download image";
   $("restored").src = url;
   $("restored-panel").hidden = false;
   const link = $("download-image");
@@ -189,19 +201,19 @@ async function togglePlayback(rms) {
 }
 
 async function handleEncode(file, run) {
-  showStatus("Encoding and checking every pixel…");
+  showStatus("Encoding and checking the result…");
   const { blob, result } = await post("/api/encode", file);
   if (run !== requestNumber) return;
   $("original-label").textContent = "Original image";
-  $("original").src = objectUrl(file);
-  $("original-panel").hidden = false;
+  $("original").src = result.name ? "" : objectUrl(file);
+  $("original-panel").hidden = Boolean(result.name);
   $("audio-panel").hidden = false;
   $("download-audio").hidden = false;
   $("download-audio").href = objectUrl(blob);
-  $("download-audio").download = `${baseName}.flac`;
+  $("download-audio").download = `${result.name ?? baseName}.flac`;
   $("result").hidden = false;
 
-  const change = (result.after - result.before) / result.before;
+  const change = result.before ? (result.after - result.before) / result.before : 0;
   const percent = `${change > 0 ? "+" : ""}${(change * 100).toFixed(1)}%`;
   addStat("Original", formatBytes(result.before));
   addStat("Audio", formatBytes(result.after));
@@ -211,7 +223,7 @@ async function handleEncode(file, run) {
   const profile = result.icc_profile ? " The colour profile is stored too." : "";
   $("verdict").textContent = change < 0
     ? `${METHOD_NOTES[result.method]}${profile}`
-    : `This image couldn't be compressed further, so it was stored unchanged. The audio is slightly larger than the original.`;
+    : `This file couldn't be compressed further, so it was stored unchanged. The audio is slightly larger than the original.`;
 
   const rms = await loadAudio(blob);
   if (run !== requestNumber) return;
@@ -223,7 +235,7 @@ async function handleEncode(file, run) {
 }
 
 async function handleDecode(file, run) {
-  showStatus("Rebuilding the image…");
+  showStatus("Rebuilding the file…");
   const { blob, result } = await post("/api/decode", file);
   if (run !== requestNumber) return;
   $("original-panel").hidden = true;
@@ -231,8 +243,9 @@ async function handleDecode(file, run) {
   $("download-audio").hidden = true;
   $("result").hidden = false;
   addStat("Audio", formatBytes(file.size));
-  addStat("Image", formatBytes(blob.size));
-  addStat("Dimensions", `${result.width} × ${result.height}`);
+  addStat(result.name ? "File" : "Image", formatBytes(blob.size));
+  if (result.name) addStat("Name", result.name);
+  else addStat("Dimensions", `${result.width} × ${result.height}`);
   showRestored(blob, result);
 }
 
@@ -284,10 +297,17 @@ async function handleFile(file) {
     return;
   }
   baseName = file.name.replace(/\.[^.]+$/, "") || "image";
-  const isAudio = /\.(flac|wav)$/i.test(file.name) || file.type.startsWith("audio/");
+  const isAudio = /\.(flac|wav)$/i.test(file.name);
   try {
     if (isZip) await handleBatch(file, run);
-    else await (isAudio ? handleDecode(file, run) : handleEncode(file, run));
+    else if (!isAudio) await handleEncode(file, run);
+    else {
+      // Audio that isn't ours is just another file to carry.
+      await handleDecode(file, run).catch(async (error) => {
+        if (!/not made by this tool|not a readable audio/i.test(error.message)) throw error;
+        await handleEncode(file, run);
+      });
+    }
   } catch (error) {
     if (run === requestNumber) showError(error.message);
   } finally {
@@ -300,7 +320,7 @@ async function rebuild() {
   const button = $("rebuild");
   button.disabled = true;
   showError("");
-  showStatus("Rebuilding the image from the audio…");
+  showStatus("Rebuilding the file from the audio…");
   try {
     const file = new File([audioBlob], `${baseName}.flac`, { type: "audio/flac" });
     const { blob, result } = await post("/api/decode", file);

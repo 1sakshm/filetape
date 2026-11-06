@@ -1,4 +1,4 @@
-"""Web interface for Photophone: upload an image or audio file and download the result."""
+"""Web interface for Photophone: upload any file or a Photophone audio file and download the result."""
 
 import json
 import mimetypes
@@ -55,7 +55,7 @@ def convert(action):
             message = str(error).replace(str(source), "this file")
             return error_response(message[0].upper() + message[1:] + ".", 400)
         body = output.read_bytes()
-    response = Response(body, mimetype=mimetypes.guess_type(output.name)[0])
+    response = Response(body, mimetype=mimetypes.guess_type(output.name)[0] or "application/octet-stream")
     response.headers["X-Photophone-Result"] = json.dumps(result)
     return response
 
@@ -69,7 +69,7 @@ def home():
 def encode():
     def run(source):
         output = source.with_suffix(".flac")
-        return output, photophone.encode(source, output, max_pixels=MAX_PIXELS)
+        return output, photophone.encode(source, output, max_pixels=MAX_PIXELS, name=request.files["file"].filename)
 
     return convert(run)
 
@@ -104,9 +104,9 @@ def unique_name(name, used):
 
 
 def compress_entry(source, name):
-    """Return the audio and its name, or None if it would not be smaller than the image."""
+    """Return the audio and its name, or None if it would not be smaller than the file."""
     output = source.with_suffix(".flac")
-    result = photophone.encode(source, output, max_pixels=MAX_PIXELS)
+    result = photophone.encode(source, output, max_pixels=MAX_PIXELS, name=PurePosixPath(name).name)
     if result["after"] >= result["before"]:
         return None
     return output, f"{name}.flac"
@@ -115,14 +115,15 @@ def compress_entry(source, name):
 def restore_entry(source, name):
     """Return the rebuilt image and its name, undoing the name compress_entry gave it."""
     result = photophone.decode(source, max_pixels=MAX_PIXELS)
+    if result.get("name"):
+        return result["path"], str(PurePosixPath(name).with_name(result["name"]))
     path = PurePosixPath(name).with_suffix("")
     if path.suffix.lower() not in photophone.ALLOWED_SUFFIXES[result["suffix"]]:
         path = path.with_suffix(result["suffix"])
     return result["path"], str(path)
 
 
-CONVERTERS = {suffix: ("compressed", compress_entry) for suffixes in photophone.ALLOWED_SUFFIXES.values() for suffix in suffixes}
-CONVERTERS |= {suffix: ("restored", restore_entry) for suffix in (".flac", ".wav")}
+CONVERTERS = {suffix: ("restored", restore_entry) for suffix in (".flac", ".wav")}
 
 
 def add_entry(output, path, name, date_time, compression):
@@ -168,10 +169,10 @@ def convert_folder(archive, output, packed):
                 note_problem(name)
                 continue
 
-            key, convert = CONVERTERS.get(PurePosixPath(name).suffix.lower(), ("copied", None))
+            key, convert = CONVERTERS.get(PurePosixPath(name).suffix.lower(), ("compressed", compress_entry))
             converted = None
             try:
-                converted = convert and convert(source, name)
+                converted = convert(source, name)
             except (photophone.PhotophoneError, MemoryError):
                 note_problem(name)
             if converted:

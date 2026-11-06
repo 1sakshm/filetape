@@ -1,6 +1,6 @@
 # Photophone
 
-Stores an image losslessly as a playable FLAC audio file, then restores it pixel for pixel.
+Turns any file into a playable FLAC audio file, then restores it exactly, with its original name. Images get extra compression.
 
 ## Usage
 
@@ -18,6 +18,14 @@ Existing files are only overwritten with `--force`. Encoding decodes the result 
 with the source before saving, and decoding checks a CRC-32 of the pixels.
 
 On the website, upload a zip of a folder and download a new zip with the same folders. Images become `name.png.flac`, and uploading that zip turns them back. Images that would not get smaller, and other files, are copied unchanged. Zips can be up to 500 MB and 1,000 files.
+
+## Any file
+
+Anything that isn't a supported image is compressed with LZMA, or stored as it is if that's smaller,
+and its name travels inside the audio. Decoding writes `NAME.decoded.EXTENSION` beside the audio.
+Measured on files from this project, each restored exactly: text and code 64-78% smaller, programs
+about 71% smaller, one PDF about 11% smaller, and one zip 0.6% larger. Already compressed files
+such as zips, MP3s and videos can't shrink. A 16-bit or animated image is carried this way too.
 
 ## How it works
 
