@@ -32,7 +32,7 @@ em { font-family: var(--serif); font-style: italic; font-weight: 500; letter-spa
 .sleeve { display: grid; align-content: start; gap: 14px; padding: 18px 20px 28px; background: var(--fire); }
 h1 { margin: 28px 0 0; font: 900 clamp(2.8rem, 7.4vw, 6.4rem)/0.92 var(--poster); text-transform: uppercase; }
 h1 span { display: block; }
-h1 em { display: block; margin-top: 6px; font-size: 0.5em; line-height: 1.05; }
+h1 em { display: block; margin-top: 8px; font: italic 400 0.52em/1.05 "DM Serif Display", Georgia, serif; letter-spacing: 0; }
 #tape { width: 100%; height: clamp(190px, 32vh, 300px); cursor: pointer; }
 .sleeve-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .lede { max-width: 34em; margin: 0; }
