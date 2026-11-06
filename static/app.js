@@ -233,13 +233,17 @@ async function handleDecode(file, run) {
   showRestored(blob, result);
 }
 
+function count(number, noun) {
+  return `${number} ${noun}${number === 1 ? "" : "s"}`;
+}
+
 function batchSummary(result) {
   const parts = [];
-  if (result.compressed) parts.push(`Compressed ${result.compressed} images into audio.`);
-  if (result.restored) parts.push(`Rebuilt ${result.restored} images from audio.`);
+  if (result.compressed) parts.push(`Compressed ${count(result.compressed, "image")} into audio.`);
+  if (result.restored) parts.push(`Rebuilt ${count(result.restored, "image")} from audio.`);
   if (!result.compressed && !result.restored) parts.push("Nothing in this zip could be made smaller.");
-  if (result.copied) parts.push(`${result.copied} files were copied unchanged.`);
-  if (result.skipped) parts.push(`${result.skipped} files could not be read and are missing from the new zip.`);
+  if (result.copied) parts.push(`Copied ${count(result.copied, "file")} unchanged.`);
+  if (result.skipped) parts.push(`Left out ${count(result.skipped, "file")} that could not be read.`);
   if (result.problems.length) parts.push(`Check: ${result.problems.join(", ")}.`);
   return parts.join(" ");
 }
@@ -260,7 +264,9 @@ async function handleBatch(file, run) {
   const change = (result.after - result.before) / result.before;
   addStat("Original zip", formatBytes(result.before));
   addStat("New zip", formatBytes(result.after));
-  addStat("Change", `${change > 0 ? "+" : ""}${(change * 100).toFixed(1)}%`, change < 0 ? "smaller" : "larger");
+  const expected = result.restored > 0 && !result.compressed; // Rebuilt images are meant to be bigger.
+  addStat("Change", `${change > 0 ? "+" : ""}${(change * 100).toFixed(1)}%`,
+    expected ? "" : change < 0 ? "smaller" : "larger");
   addStat("Files", String(result.compressed + result.restored + result.copied));
   $("verdict").textContent = batchSummary(result);
 }
