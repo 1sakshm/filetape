@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Photophone</title>
+  <meta name="description" content="Store an image as a FLAC audio file and rebuild it exactly.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="intro">
+      <p class="wordmark"><span class="mark" aria-hidden="true"></span>Photophone</p>
+      <h1>Turn an image into sound. Get every pixel back.</h1>
+      <p class="lede">Photophone stores a picture as a FLAC audio file and can rebuild it exactly from that file. Most images come out smaller, and JPEGs come back byte for byte.</p>
+    </header>
+
+    <canvas id="strip" class="strip" aria-hidden="true"></canvas>
+
+    <section id="drop" class="drop" aria-label="Upload a file">
+      <p class="drop-title">Drop an image, a Photophone audio file or a zip of a folder</p>
+      <button id="choose" class="button primary" type="button">Choose a file</button>
+      <input id="file" type="file" hidden
+        accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff,image/gif,.flac,.wav,audio/flac,audio/wav,.zip,application/zip">
+      <p class="hint">PNG, JPEG, WebP, BMP, TIFF, GIF, FLAC or WAV, up to 40 MB and 50 megapixels. Zips up to 500 MB and 1,000 files.</p>
+    </section>
+
+    <p id="status" class="status" role="status" hidden></p>
+    <p id="error" class="error" role="alert" hidden></p>
+
+    <section id="result" class="result" aria-label="Result" hidden>
+      <div class="panels">
+        <figure id="original-panel" class="panel">
+          <figcaption id="original-label">Original image</figcaption>
+          <div class="frame">
+            <img id="original" alt="The uploaded image">
+            <p id="no-preview" class="no-preview" hidden>This browser can't preview this format.</p>
+          </div>
+        </figure>
+
+        <figure id="audio-panel" class="panel">
+          <figcaption>Audio</figcaption>
+          <div class="frame wave">
+            <canvas id="wave" role="img" aria-label="Waveform of the audio file"></canvas>
+          </div>
+          <div class="player">
+            <button id="play" class="button" type="button">Play</button>
+            <p class="hint">Playback is set to a comfortable level here. The file itself doesn't change.</p>
+          </div>
+        </figure>
+
+        <figure id="restored-panel" class="panel" hidden>
+          <figcaption>Rebuilt image</figcaption>
+          <div class="frame"><img id="restored" alt="The image rebuilt from audio"></div>
+        </figure>
+      </div>
+
+      <dl id="stats" class="stats"></dl>
+      <p id="verdict" class="verdict"></p>
+
+      <div class="actions">
+        <a id="download-audio" class="button primary">Download FLAC</a>
+        <a id="download-zip" class="button primary" hidden>Download zip</a>
+        <button id="rebuild" class="button" type="button">Rebuild image from audio</button>
+        <a id="download-image" class="button" hidden>Download image</a>
+      </div>
+    </section>
+
+    <footer>Uploaded files are deleted from the server as soon as each conversion finishes. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the image.</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
