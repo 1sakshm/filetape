@@ -27,6 +27,13 @@ Measured on files from this project, each restored exactly: text and code 64-78%
 about 71% smaller, one PDF about 11% smaller, and one zip 0.6% larger. Already compressed files
 such as zips, MP3s and videos can't shrink. A 16-bit or animated image is carried this way too.
 
+## Website
+
+The website does everything on the visitor's device, in `static/codec.js`, so it needs no server
+and can be hosted as plain files. JPEGs go through the Truepix codec, and other files through
+Deflate. It writes the same format as this tool, which opens its files. The site can't open audio
+that needs JPEG XL or LZMA, which browsers lack, so it says to use this tool instead.
+
 ## How it works
 
 `encode` tries each method that applies, verifies the result and keeps the smallest:

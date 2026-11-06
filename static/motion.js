@@ -148,7 +148,7 @@
   const method = (() => {
     const canvas = $("method"), section = $("how"), speech = $("method-say"), dots = [...$("method-steps").children];
     const COLS = 24, ROWS = 18, cells = picture(COLS, ROWS), STEPS = 4;
-    const RUNNERS = [["JPEG XL", 0.62, C.amber], ["PREDICTION ERRORS", 0.78, C.cream], ["FILE AS IT IS", 1, C.cream]];
+    const RUNNERS = [["COMPRESSED", 0.62, C.amber], ["FILE AS IT IS", 1, C.cream]];
     const hex = (n) => Math.floor(noise(n) * 256).toString(16).padStart(2, "0").toUpperCase();
 
     function read(g, a, q, t) {

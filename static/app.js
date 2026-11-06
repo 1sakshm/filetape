@@ -1,10 +1,10 @@
 "use strict";
 
-const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 const MAX_BATCH_BYTES = 500 * 1024 * 1024;
 const TARGET_RMS = 0.1; // Playback level, as a fraction of full scale.
 const METHOD_NOTES = {
-  jpeg: "Decoding rebuilds the original JPEG byte for byte, including its metadata.",
+  jpeg: "Your original JPEG comes back byte for byte, including its metadata.",
   data: "Decoding rebuilds the original file byte for byte, with its name. Every byte was checked.",
   jxl: "Every pixel was checked against the original.",
   residual: "Every pixel was checked against the original.",
@@ -71,18 +71,23 @@ function resetResult() {
   $("verdict").textContent = "";
 }
 
-async function post(path, file) {
-  const form = new FormData();
-  form.append("file", file);
-  const response = await fetch(path, { method: "POST", body: form });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error ?? "The server couldn't convert this file.");
-  }
-  return {
-    blob: await response.blob(),
-    result: JSON.parse(response.headers.get("X-Filetape-Result")),
-  };
+// The conversion runs in a worker on this device, so no file leaves it.
+const codec = new Worker("codec.js");
+const waiting = new Map();
+let jobNumber = 0;
+codec.onmessage = ({ data }) => {
+  const job = waiting.get(data.id);
+  waiting.delete(data.id);
+  if (data.error) job.reject(new Error(data.error));
+  else job.resolve({ blob: new Blob([data.bytes], { type: data.type }), result: data.result });
+};
+
+async function post(job, file) {
+  const bytes = await file.arrayBuffer(), id = ++jobNumber;
+  return new Promise((resolve, reject) => {
+    waiting.set(id, { resolve, reject });
+    codec.postMessage({ id, job, bytes, name: file.name }, [bytes]);
+  });
 }
 
 function addStat(label, value, className) {
@@ -202,7 +207,7 @@ async function togglePlayback(rms) {
 
 async function handleEncode(file, run) {
   showStatus("Encoding and checking the result…");
-  const { blob, result } = await post("/api/encode", file);
+  const { blob, result } = await post("encode", file);
   if (run !== requestNumber) return;
   $("original-label").textContent = "Original image";
   $("original").src = result.name ? "" : objectUrl(file);
@@ -236,7 +241,7 @@ async function handleEncode(file, run) {
 
 async function handleDecode(file, run) {
   showStatus("Rebuilding the file…");
-  const { blob, result } = await post("/api/decode", file);
+  const { blob, result } = await post("decode", file);
   if (run !== requestNumber) return;
   $("original-panel").hidden = true;
   $("audio-panel").hidden = true;
@@ -266,7 +271,7 @@ function batchSummary(result) {
 
 async function handleBatch(file, run) {
   showStatus("Converting every image in the zip. Large folders can take several minutes…");
-  const { blob, result } = await post("/api/batch", file);
+  const { blob, result } = await post("batch", file);
   if (run !== requestNumber) return;
   $("original-panel").hidden = true;
   $("audio-panel").hidden = true;
@@ -293,7 +298,7 @@ async function handleFile(file) {
   showError("");
   const isZip = /\.zip$/i.test(file.name);
   if (file.size > (isZip ? MAX_BATCH_BYTES : MAX_UPLOAD_BYTES)) {
-    showError(`Files can be up to ${isZip ? 500 : 40} MB.`);
+    showError(`Files can be up to ${isZip ? 500 : 200} MB.`);
     return;
   }
   baseName = file.name.replace(/\.[^.]+$/, "") || "image";
@@ -323,7 +328,7 @@ async function rebuild() {
   showStatus("Rebuilding the file from the audio…");
   try {
     const file = new File([audioBlob], `${baseName}.flac`, { type: "audio/flac" });
-    const { blob, result } = await post("/api/decode", file);
+    const { blob, result } = await post("decode", file);
     if (run === requestNumber) showRestored(blob, result);
   } catch (error) {
     if (run === requestNumber) showError(error.message);

@@ -526,6 +526,18 @@ def test_stored_name_cannot_leave_the_folder(tmp_path):
     assert result["name"] == "evil.txt"
 
 
+def test_website_deflate_files_open(tmp_path):
+    audio = tmp_path / "a.flac"
+    original = b"made in the browser " * 300
+    squeezer = zlib.compressobj(wbits=-15)
+    body = squeezer.compress(original) + squeezer.flush()
+    title = b"page.txt"
+    payload = filetape.DATA_HEADER.pack(filetape.DATA_DEFLATE, len(original), len(title)) + title + body
+    filetape.write_payload(audio, filetape.KIND_DATA, payload, zlib.crc32(original))
+    restored = filetape.restore(audio)
+    assert (restored.name, restored.file) == ("page.txt", original)
+
+
 def test_expansion_bomb_is_refused_before_expanding(tmp_path):
     audio = tmp_path / "a.flac"
     payload = filetape.pack_data(b"\0" * 10_000_000, "bomb.bin")

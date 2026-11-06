@@ -24,7 +24,7 @@ MAX_BATCH_UNPACKED = 2 * 1024 * 1024 * 1024
 MAX_BATCH_OUTPUT = 2 * 1024 * 1024 * 1024
 MAX_LISTED_PROBLEMS = 20
 CONTENT_SECURITY_POLICY = (
-    "default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; "
+    "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self' https://fonts.googleapis.com; "
     "font-src https://fonts.gstatic.com; img-src 'self' blob:; "
     "media-src blob:; connect-src 'self'; base-uri 'none'; form-action 'none'; "
     "frame-ancestors 'none'"

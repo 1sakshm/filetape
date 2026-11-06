@@ -48,6 +48,8 @@ JPEG_SEGMENT = struct.Struct("<II")  # offset in the original file, length
 DATA_HEADER = struct.Struct("<BQH")  # method, original size, name length
 DATA_RAW = 0
 DATA_LZMA = 1
+DATA_DEFLATE = 2  # written by the website
+DATA_JPEG = 3  # the website's Truepix JPEG files
 MAX_NAME_BYTES = 1024
 SUFFIXES = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp", "BMP": ".bmp", "TIFF": ".tif", "GIF": ".gif"}
 ALLOWED_SUFFIXES = {
@@ -215,6 +217,18 @@ def unpack_data(payload, path, limit=None):
             data = inflater.decompress(body, max_length=size + 1)
         except lzma.LZMAError as error:
             raise FiletapeError(f"{path} is corrupted: checksum mismatch") from error
+    elif method == DATA_DEFLATE:
+        try:
+            inflater = zlib.decompressobj(-15)
+            data = inflater.decompress(body, size + 1)
+        except zlib.error as error:
+            raise FiletapeError(f"{path} is corrupted: checksum mismatch") from error
+    elif method == DATA_JPEG:
+        with tempfile.TemporaryDirectory() as folder:
+            packed, raw = Path(folder) / "in.tpix", Path(folder) / "out.jpg"
+            packed.write_bytes(body)
+            run_truepix("d", packed, raw)
+            data = raw.read_bytes()
     else:
         raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     if len(data) != size:

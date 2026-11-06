@@ -23,7 +23,7 @@
     <h1><span>Turn any file into sound.</span> <em>Get every byte back.</em></h1>
     <canvas id="tape" role="img" aria-label="A tape deck. Data leaves an image, travel onto moving tape and become a waveform, then the tape reverses and rebuilds the image exactly."></canvas>
     <div class="sleeve-foot">
-      <p class="lede">Filetape turns any file into a FLAC audio file and rebuilds it exactly, with its original name. Documents, code, programs and images: if it's a file, it can be sound.</p>
+      <p class="lede">Filetape turns any file into a FLAC audio file and rebuilds it exactly, with its original name. It all happens on your device, so your files never leave it.</p>
       <a class="button loud" href="#deck">Load a file</a>
     </div>
   </header>
@@ -39,7 +39,7 @@
           <p class="drop-title">Drop any file, a Filetape audio file or a zip of a folder</p>
           <button id="choose" class="button loud" type="button">Choose a file</button>
           <input id="file" type="file" hidden>
-          <p class="hint">Any file up to 40 MB. Images up to 50 megapixels get extra compression. Zips up to 500 MB and 1,000 files.</p>
+          <p class="hint">Any file up to 200 MB. Zips up to 500 MB and 1,000 files. Nothing is uploaded.</p>
         </div>
 
         <p id="status" class="status" role="status" hidden></p>
@@ -50,7 +50,7 @@
             <figure id="original-panel" class="panel">
               <figcaption id="original-label">Original image</figcaption>
               <div class="frame">
-                <img id="original" alt="The uploaded image">
+                <img id="original" alt="Your image">
                 <p id="no-preview" class="no-preview" hidden>This browser can't preview this format.</p>
               </div>
             </figure>
@@ -90,13 +90,13 @@
       <div class="stage">
         <canvas id="method" role="img" aria-label="Diagram showing a file read, compression methods racing, bytes becoming audio samples, and the finished FLAC being checked."></canvas>
         <div class="caption">
-          <span class="engraved">Scroll. Sizes in the race are illustrative, and show an image.</span>
+          <span class="engraved">Scroll. Sizes in the race are illustrative.</span>
           <h2>What happens <em>inside</em></h2>
           <div class="say" id="method-say">
-            <div class="on"><strong>1. Read the file</strong><p>Filetape reads every byte and notes the name. If it's an image, it also reads the pixels and the colour profile.</p></div>
-            <div><strong>2. Race the methods</strong><p>Images race JPEG XL, prediction errors and the file as it is. Any other file is compressed with LZMA, or stored as it is if that's smaller.</p></div>
+            <div class="on"><strong>1. Read the file</strong><p>Filetape reads every byte and notes the name, all on your own device.</p></div>
+            <div><strong>2. Shrink it</strong><p>JPEGs go through the Truepix codec, and everything else through Deflate. If that doesn't help, the file is stored as it is.</p></div>
             <div><strong>3. Bytes become sound</strong><p>Every two bytes of the winner become one 16-bit audio sample. Good compression looks random, so this sounds like loud white noise.</p></div>
-            <div><strong>4. Press the tape</strong><p>FLAC is the carrier, adding about 0.2%. Filetape decodes the result and compares it with your file before it hands you anything.</p></div>
+            <div><strong>4. Press the tape</strong><p>FLAC is the carrier, adding about 0.2%. Filetape decodes the result and compares every byte with your file before it hands you anything.</p></div>
           </div>
           <div class="steps" id="method-steps"><i class="on"></i><i></i><i></i><i></i></div>
         </div>
@@ -107,15 +107,13 @@
       <div class="inner" data-arm>
         <span class="engraved">Measured, and every file came back exact</span>
         <h2>What shrinks, <em>and by how much</em></h2>
-        <p>Text and code shrink most. On 23 sample images the total dropped by 30.8%. Files that are already compressed, like zips, MP3s and videos, don't shrink and grow slightly.</p>
+        <p>Text, code and JPEGs shrink. Files that are already compressed, like PNGs, zips, MP3s and videos, don't shrink and grow by about 0.2%. Results depend on the file.</p>
         <ul class="ranges">
-          <li><span>Colour PNG, with logos</span><div class="track"><i data-from="27" data-to="59"></i></div><b>27–59% smaller</b></li>
-          <li><span>Greyscale PNG</span><div class="track"><i data-from="6" data-to="45"></i></div><b>6–45% smaller</b></li>
-          <li><span>JPEG</span><div class="track"><i data-from="13" data-to="22"></i></div><b>13–22% smaller</b></li>
-          <li><span>Text and code</span><div class="track"><i data-from="64" data-to="78"></i></div><b>64–78% smaller</b></li>
-          <li><span>Programs</span><div class="track"><i data-from="70" data-to="72"></i></div><b>About 71% smaller</b></li>
-          <li><span>One PDF</span><div class="track"><i data-from="10" data-to="12"></i></div><b>About 11% smaller</b></li>
-          <li><span>One zip</span><div class="track"></div><b>0.6% larger</b></li>
+          <li><span>Text and code</span><div class="track"><i data-from="61" data-to="73"></i></div><b>61–73% smaller</b></li>
+          <li><span>Programs</span><div class="track"><i data-from="61" data-to="64"></i></div><b>61–64% smaller</b></li>
+          <li><span>JPEG photos</span><div class="track"><i data-from="20" data-to="23"></i></div><b>20–23% smaller</b></li>
+          <li><span>One PDF</span><div class="track"><i data-from="9" data-to="11"></i></div><b>About 10% smaller</b></li>
+          <li><span>One PNG</span><div class="track"></div><b>0.2% larger</b></li>
         </ul>
       </div>
     </section>
@@ -126,7 +124,7 @@
           <span class="engraved">Batch</span>
           <h2>Whole folders <em>fit on one tape</em></h2>
           <p>Zip a folder and drop it in. You get a new zip with the same folders, and uploading that zip turns everything back. Every file inside gets the same treatment, and anything that wouldn't shrink is copied unchanged.</p>
-          <p class="hint-dark">In one test, 10 files went from 27.2 MB to 18.8 MB, and all 10 came back with the same names.</p>
+          <p class="hint-dark">In one test, a folder of 5 files went from 723 KB to 628 KB, and all 5 came back exactly, with the same names.</p>
         </div>
         <canvas id="cassette" role="img" aria-label="Files sliding into a cassette whose reels turn."></canvas>
       </div>
@@ -134,7 +132,7 @@
 
   </main>
 
-  <footer>Uploaded files are deleted from the server as soon as each conversion finishes. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the file.</footer>
+  <footer>Your files never leave your device. Keep the audio in FLAC or WAV: MP3, AAC or re-recording it destroys the file.</footer>
   <script src="app.js"></script>
   <script src="motion.js"></script>
 </body>
