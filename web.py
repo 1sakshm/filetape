@@ -1,4 +1,4 @@
-"""Web interface for Photophone: upload any file or a Photophone audio file and download the result."""
+"""Web interface for Filetape: upload any file or a Filetape audio file and download the result."""
 
 import json
 import mimetypes
@@ -14,7 +14,7 @@ from flask import Flask, Response, jsonify, request, send_file
 from waitress import serve
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 
-import photophone
+import filetape
 
 MAX_UPLOAD_MB = 40
 MAX_PIXELS = 50_000_000
@@ -51,12 +51,12 @@ def convert(action):
         upload.save(source)
         try:
             output, result = action(source)
-        except photophone.PhotophoneError as error:
+        except filetape.FiletapeError as error:
             message = str(error).replace(str(source), "this file")
             return error_response(message[0].upper() + message[1:] + ".", 400)
         body = output.read_bytes()
     response = Response(body, mimetype=mimetypes.guess_type(output.name)[0] or "application/octet-stream")
-    response.headers["X-Photophone-Result"] = json.dumps(result)
+    response.headers["X-Filetape-Result"] = json.dumps(result)
     return response
 
 
@@ -69,7 +69,7 @@ def home():
 def encode():
     def run(source):
         output = source.with_suffix(".flac")
-        return output, photophone.encode(source, output, max_pixels=MAX_PIXELS, name=request.files["file"].filename)
+        return output, filetape.encode(source, output, max_pixels=MAX_PIXELS, name=request.files["file"].filename)
 
     return convert(run)
 
@@ -77,7 +77,7 @@ def encode():
 @app.post("/api/decode")
 def decode():
     def run(source):
-        result = photophone.decode(source, max_pixels=MAX_PIXELS)
+        result = filetape.decode(source, max_pixels=MAX_PIXELS)
         return result.pop("path"), result
 
     return convert(run)
@@ -106,7 +106,7 @@ def unique_name(name, used):
 def compress_entry(source, name):
     """Return the audio and its name, or None if it would not be smaller than the file."""
     output = source.with_suffix(".flac")
-    result = photophone.encode(source, output, max_pixels=MAX_PIXELS, name=PurePosixPath(name).name)
+    result = filetape.encode(source, output, max_pixels=MAX_PIXELS, name=PurePosixPath(name).name)
     if result["after"] >= result["before"]:
         return None
     return output, f"{name}.flac"
@@ -114,11 +114,11 @@ def compress_entry(source, name):
 
 def restore_entry(source, name):
     """Return the rebuilt image and its name, undoing the name compress_entry gave it."""
-    result = photophone.decode(source, max_pixels=MAX_PIXELS)
+    result = filetape.decode(source, max_pixels=MAX_PIXELS)
     if result.get("name"):
         return result["path"], str(PurePosixPath(name).with_name(result["name"]))
     path = PurePosixPath(name).with_suffix("")
-    if path.suffix.lower() not in photophone.ALLOWED_SUFFIXES[result["suffix"]]:
+    if path.suffix.lower() not in filetape.ALLOWED_SUFFIXES[result["suffix"]]:
         path = path.with_suffix(result["suffix"])
     return result["path"], str(path)
 
@@ -140,11 +140,11 @@ def convert_folder(archive, output, packed):
         if not entry.is_dir() and not entry.filename.startswith("__MACOSX/")
     ]
     if not entries:
-        raise photophone.PhotophoneError("this zip has no files in it")
+        raise filetape.FiletapeError("this zip has no files in it")
     if len(entries) > MAX_BATCH_FILES:
-        raise photophone.PhotophoneError(f"a zip can hold up to {MAX_BATCH_FILES:,} files")
+        raise filetape.FiletapeError(f"a zip can hold up to {MAX_BATCH_FILES:,} files")
     if sum(entry.file_size for entry in entries) > MAX_BATCH_UNPACKED:
-        raise photophone.PhotophoneError("this zip unpacks to more than the limit of 2 GB")
+        raise filetape.FiletapeError("this zip unpacks to more than the limit of 2 GB")
 
     summary = {"compressed": 0, "restored": 0, "copied": 0, "skipped": 0, "problems": []}
     used = set()
@@ -173,7 +173,7 @@ def convert_folder(archive, output, packed):
             converted = None
             try:
                 converted = convert(source, name)
-            except (photophone.PhotophoneError, MemoryError):
+            except (filetape.FiletapeError, MemoryError):
                 note_problem(name)
             if converted:
                 path, new_name = converted
@@ -183,7 +183,7 @@ def convert_folder(archive, output, packed):
                 add_entry(output, source, unique_name(name, used), entry.date_time, zipfile.ZIP_DEFLATED)
                 summary["copied"] += 1
         if packed.tell() > MAX_BATCH_OUTPUT:
-            raise photophone.PhotophoneError("the converted zip would be over the limit of 2 GB")
+            raise filetape.FiletapeError("the converted zip would be over the limit of 2 GB")
     return summary
 
 
@@ -196,7 +196,7 @@ def batch():
         request.max_content_length = MAX_BATCH_MB * 1024 * 1024
         upload = request.files.get("file")
         if upload is None or not upload.filename:
-            raise photophone.PhotophoneError("choose a zip file to convert")
+            raise filetape.FiletapeError("choose a zip file to convert")
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "upload.zip"
             upload.save(source)
@@ -204,9 +204,9 @@ def batch():
                 with zipfile.ZipFile(source) as archive, zipfile.ZipFile(packed, "w") as output:
                     result = convert_folder(archive, output, packed)
             except zipfile.BadZipFile:
-                raise photophone.PhotophoneError("this file is not a readable zip") from None
+                raise filetape.FiletapeError("this file is not a readable zip") from None
             result["before"] = source.stat().st_size
-    except photophone.PhotophoneError as error:
+    except filetape.FiletapeError as error:
         packed.close()
         message = str(error)
         return error_response(message[0].upper() + message[1:] + ".", 400)
@@ -219,7 +219,7 @@ def batch():
     packed.seek(0)
     response = send_file(packed, mimetype="application/zip")
     response.content_length = result["after"]
-    response.headers["X-Photophone-Result"] = json.dumps(result)
+    response.headers["X-Filetape-Result"] = json.dumps(result)
     return response
 
 
@@ -251,7 +251,7 @@ def unexpected_error(error):
 def main():
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8000"))
-    print(f"Photophone is running at http://{host}:{port}")
+    print(f"Filetape is running at http://{host}:{port}")
     serve(app, host=host, port=port)
 
 

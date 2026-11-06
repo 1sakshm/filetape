@@ -49,7 +49,7 @@ def test_encode_then_decode_restores_pixels_and_profile(client):
     encoded = upload(client, "/api/encode", source)
     assert encoded.status_code == 200
     assert encoded.mimetype == "audio/flac"
-    result = json.loads(encoded.headers["X-Photophone-Result"])
+    result = json.loads(encoded.headers["X-Filetape-Result"])
     assert result["before"] == len(source)
     assert result["after"] == len(encoded.data)
     assert result["icc_profile"] is True
@@ -73,17 +73,17 @@ def test_any_file_comes_back_with_its_name(client, name, data):
     encoded = upload(client, "/api/encode", data, name)
     assert encoded.status_code == 200
     assert encoded.mimetype == "audio/flac"
-    assert json.loads(encoded.headers["X-Photophone-Result"])["name"] == name
+    assert json.loads(encoded.headers["X-Filetape-Result"])["name"] == name
     decoded = upload(client, "/api/decode", encoded.data, "audio.flac")
     assert decoded.status_code == 200
     assert decoded.data == data
-    assert json.loads(decoded.headers["X-Photophone-Result"])["name"] == name
+    assert json.loads(decoded.headers["X-Filetape-Result"])["name"] == name
 
 
 def test_hostile_stored_name_is_reduced_to_a_file_name(client):
     encoded = upload(client, "/api/encode", b"payload " * 100, "..\\..\\evil.txt")
     decoded = upload(client, "/api/decode", encoded.data, "audio.flac")
-    assert json.loads(decoded.headers["X-Photophone-Result"])["name"] == "evil.txt"
+    assert json.loads(decoded.headers["X-Filetape-Result"])["name"] == "evil.txt"
 
 
 def test_not_audio_gives_a_clean_error(client):
@@ -118,7 +118,7 @@ def test_too_many_pixels_is_carried_as_a_file(client, monkeypatch):
     monkeypatch.setattr(web, "MAX_PIXELS", 100)
     response = upload(client, "/api/encode", png_bytes())
     assert response.status_code == 200
-    assert json.loads(response.headers["X-Photophone-Result"])["method"] == "data"
+    assert json.loads(response.headers["X-Filetape-Result"])["method"] == "data"
 
 
 def test_unknown_path_returns_json(client):
@@ -150,7 +150,7 @@ def unpack(response):
 
 
 def result_of(response):
-    return json.loads(response.headers["X-Photophone-Result"])
+    return json.loads(response.headers["X-Filetape-Result"])
 
 
 def test_batch_round_trip_restores_folder(client):
@@ -165,7 +165,7 @@ def test_batch_round_trip_restores_folder(client):
     contents = unpack(packed)
     assert set(contents) == {"trip/a.png.flac", "trip/days/b.png.flac", "notes.txt"}
 
-    restored = upload(client, "/api/batch", packed.data, "folder.photophone.zip")
+    restored = upload(client, "/api/batch", packed.data, "folder.filetape.zip")
     assert result_of(restored)["restored"] == 2
     images = unpack(restored)
     assert set(images) == set(files)
@@ -180,7 +180,7 @@ def test_batch_restores_a_jpeg_byte_for_byte(client):
     buffer = io.BytesIO()
     Image.fromarray(array).save(buffer, format="JPEG")
     packed = batch(client, {"photo.jpeg": buffer.getvalue()})
-    restored = upload(client, "/api/batch", packed.data, "folder.photophone.zip")
+    restored = upload(client, "/api/batch", packed.data, "folder.filetape.zip")
     assert unpack(restored) == {"photo.jpeg": buffer.getvalue()}
 
 
@@ -196,7 +196,7 @@ def test_batch_carries_any_file_and_brings_it_back(client):
     packed = batch(client, files)
     assert result_of(packed)["compressed"] == 3
     assert "docs/notes.txt.flac" in unpack(packed)
-    restored = upload(client, "/api/batch", packed.data, "folder.photophone.zip")
+    restored = upload(client, "/api/batch", packed.data, "folder.filetape.zip")
     contents = unpack(restored)
     assert contents["docs/notes.txt"] == files["docs/notes.txt"]
     assert contents["bad.png"] == files["bad.png"]

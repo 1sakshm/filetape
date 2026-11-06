@@ -51,7 +51,7 @@ function stopPlayback() {
   player.audio.pause();
   player.context.close();
   player = null;
-  window.photophoneAnalyser = null;
+  window.filetapeAnalyser = null;
 }
 
 function resetResult() {
@@ -81,7 +81,7 @@ async function post(path, file) {
   }
   return {
     blob: await response.blob(),
-    result: JSON.parse(response.headers.get("X-Photophone-Result")),
+    result: JSON.parse(response.headers.get("X-Filetape-Result")),
   };
 }
 
@@ -194,8 +194,8 @@ async function togglePlayback(rms) {
   const analyser = context.createAnalyser();
   analyser.fftSize = 1024;
   context.createMediaElementSource(audio).connect(gain).connect(analyser).connect(context.destination);
-  audio.addEventListener("play", () => { $("play").textContent = "Pause"; window.photophoneAnalyser = analyser; });
-  audio.addEventListener("pause", () => { $("play").textContent = "Play"; window.photophoneAnalyser = null; });
+  audio.addEventListener("play", () => { $("play").textContent = "Pause"; window.filetapeAnalyser = analyser; });
+  audio.addEventListener("pause", () => { $("play").textContent = "Play"; window.filetapeAnalyser = null; });
   player = { audio, context };
   await audio.play();
 }
@@ -274,7 +274,7 @@ async function handleBatch(file, run) {
   $("rebuild").hidden = true;
   $("download-zip").hidden = false;
   $("download-zip").href = objectUrl(blob);
-  $("download-zip").download = `${baseName}.photophone.zip`;
+  $("download-zip").download = `${baseName}.filetape.zip`;
   $("result").hidden = false;
 
   const change = (result.after - result.before) / result.before;

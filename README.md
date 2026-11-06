@@ -1,17 +1,17 @@
-# Photophone
+# Filetape
 
 Turns any file into a playable FLAC audio file, then restores it exactly, with its original name. Images get extra compression.
 
 ## Usage
 
 ```
-uv run photophone encode photo.png             # writes photo.flac
-uv run photophone decode photo.flac            # writes photo.decoded.png (.jpg for a JPEG)
-uv run photophone encode photo.png -o a.flac   # choose the output path
-uv run photophone encode photo.png --max       # smallest output, also tries the Truepix codec
+uv run filetape encode photo.png             # writes photo.flac
+uv run filetape decode photo.flac            # writes photo.decoded.png (.jpg for a JPEG)
+uv run filetape encode photo.png -o a.flac   # choose the output path
+uv run filetape encode photo.png --max       # smallest output, also tries the Truepix codec
 ```
 
-To use the website, run `uv run photophone-web` and open http://127.0.0.1:8000. It accepts files up to
+To use the website, run `uv run filetape-web` and open http://127.0.0.1:8000. It accepts files up to
 40 MB and 50 megapixels. Set `HOST` and `PORT` to change where it listens.
 
 Existing files are only overwritten with `--force`. Encoding decodes the result and compares it
@@ -67,7 +67,7 @@ when it wins. It takes about 15 to 35 seconds each way for a 3-megapixel image, 
 other methods. Truepix is optional: without it, `--max` uses the other methods. The website can
 decode these files, but encodes at default effort, so it does not create them.
 
-Files made with Truepix need it to decode. Photophone looks for `truepix-core` in `TRUEPIX_CORE`,
+Files made with Truepix need it to decode. Filetape looks for `truepix-core` in `TRUEPIX_CORE`,
 then on `PATH`, then in a `Truepix` folder beside this one. See the Truepix README to build it.
 
 ## Limits

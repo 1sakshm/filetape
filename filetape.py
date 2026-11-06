@@ -60,7 +60,7 @@ ALLOWED_SUFFIXES = {
 }
 
 
-class PhotophoneError(Exception):
+class FiletapeError(Exception):
     """A problem with the input that the user can act on."""
 
 
@@ -168,7 +168,7 @@ def stored_bytes(stream, start, stop, path):
     """Read metadata bytes from the start of the interleaved samples."""
     values = stream[start:stop]
     if values.size < stop - start or values.min(initial=0) < 0 or values.max(initial=0) > 255:
-        raise PhotophoneError(f"{path} was not made by this tool")
+        raise FiletapeError(f"{path} was not made by this tool")
     return values.astype(np.uint8).tobytes()
 
 
@@ -177,9 +177,9 @@ def unpack_icc(packed, path):
     try:
         icc_profile = inflater.decompress(packed, MAX_ICC_SIZE)
     except zlib.error as error:
-        raise PhotophoneError(f"{path} is corrupted: bad colour profile") from error
+        raise FiletapeError(f"{path} is corrupted: bad colour profile") from error
     if inflater.unconsumed_tail or not inflater.eof:
-        raise PhotophoneError(f"{path} is corrupted: bad colour profile")
+        raise FiletapeError(f"{path} is corrupted: bad colour profile")
     return icc_profile
 
 
@@ -201,10 +201,10 @@ def pack_data(original, name):
 def unpack_data(payload, path, limit=None):
     """Return (name, bytes), checking what the file would demand before expanding it."""
     if len(payload) < DATA_HEADER.size:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     method, size, length = DATA_HEADER.unpack_from(payload)
     if limit and size > limit:
-        raise PhotophoneError(f"{path} would expand to more than the limit of {limit // 1024 ** 2} MB")
+        raise FiletapeError(f"{path} would expand to more than the limit of {limit // 1024 ** 2} MB")
     start = DATA_HEADER.size + length
     title, body = payload[DATA_HEADER.size:start], payload[start:]
     if method == DATA_RAW:
@@ -214,11 +214,11 @@ def unpack_data(payload, path, limit=None):
             inflater = lzma.LZMADecompressor()
             data = inflater.decompress(body, max_length=size + 1)
         except lzma.LZMAError as error:
-            raise PhotophoneError(f"{path} is corrupted: checksum mismatch") from error
+            raise FiletapeError(f"{path} is corrupted: checksum mismatch") from error
     else:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     if len(data) != size:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     return safe_name(title.decode("utf-8", "replace")), data
 
 
@@ -241,7 +241,7 @@ def truepix_binary():
     found = os.environ.get("TRUEPIX_CORE") or shutil.which(name) or beside
     binary = Path(found)
     if not binary.is_file():
-        raise PhotophoneError("the Truepix codec was not found; see README.md to install it")
+        raise FiletapeError("the Truepix codec was not found; see README.md to install it")
     return binary
 
 
@@ -249,9 +249,9 @@ def run_truepix(*arguments):
     try:
         done = subprocess.run([str(truepix_binary()), *map(str, arguments)], capture_output=True, text=True)
     except OSError as error:
-        raise PhotophoneError(f"cannot run the Truepix codec: {error}") from error
+        raise FiletapeError(f"cannot run the Truepix codec: {error}") from error
     if done.returncode:
-        raise PhotophoneError(f"the Truepix codec failed: {done.stderr.strip()}")
+        raise FiletapeError(f"the Truepix codec failed: {done.stderr.strip()}")
 
 
 def truepix_compress(pixels):
@@ -267,12 +267,12 @@ def truepix_compress(pixels):
 def truepix_expand(payload, path, max_pixels=None):
     """Decode a Truepix file after checking what it would demand of the machine."""
     if len(payload) < TRUEPIX_HEADER.size:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     magic, width, height, channels, side, _ = TRUEPIX_HEADER.unpack_from(payload)
     if magic != TRUEPIX_MAGIC or not 1 <= channels <= len(MODES) or not 1 <= side <= TRUEPIX_MAX_SIDE:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     if max_pixels and width * height > max_pixels:
-        raise PhotophoneError(f"{path} is too large; the limit is {max_pixels:,} pixels")
+        raise FiletapeError(f"{path} is too large; the limit is {max_pixels:,} pixels")
     size = width * height * channels
     with tempfile.TemporaryDirectory() as folder:
         packed, raw = Path(folder) / "in.tpix", Path(folder) / "out.pnm"
@@ -290,7 +290,7 @@ def read_payload(samples, path, max_pixels=None):
     icc_profile = unpack_icc(stored_bytes(stream, PAYLOAD_HEADER.size, start, path), path) if icc_size else None
     body = stream[start:]
     if body.size != math.ceil(size / 2):
-        raise PhotophoneError(f"{path} is truncated or corrupted")
+        raise FiletapeError(f"{path} is truncated or corrupted")
     payload = body.astype("<i2").tobytes()[:size]
     try:
         if kind == KIND_FILE:
@@ -303,7 +303,7 @@ def read_payload(samples, path, max_pixels=None):
         elif kind in (KIND_JPEG, KIND_JPEG_SPLIT):
             is_jpeg, _, data, _, _ = pillow_jxl.Decoder()(payload)
             if not is_jpeg:
-                raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+                raise FiletapeError(f"{path} is corrupted: checksum mismatch")
             data = bytes(data)
             restored = Restored(file=join_jpeg_segments(data, icc_profile) if icc_profile else data)
             actual = zlib.crc32(restored.file)
@@ -318,11 +318,11 @@ def read_payload(samples, path, max_pixels=None):
             restored = Restored(pixels=pixels, mode=mode, icc_profile=icc_profile)
             actual = content_crc(pixels, icc_profile)
         else:
-            raise PhotophoneError(f"{path} was not made by this tool")
+            raise FiletapeError(f"{path} was not made by this tool")
     except (RuntimeError, ValueError) as error:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch") from error
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch") from error
     if actual != crc:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     return restored
 
 
@@ -338,10 +338,10 @@ def restore(path, max_pixels=None):
 def read_samples(path, max_pixels=None):
     try:
         if max_pixels and sf.info(path).frames > max_pixels + MAX_ICC_SIZE:
-            raise PhotophoneError(f"{path} is too large; the limit is {max_pixels:,} pixels")
+            raise FiletapeError(f"{path} is too large; the limit is {max_pixels:,} pixels")
         samples, _ = sf.read(path, dtype="int16", always_2d=True)
     except sf.LibsndfileError as error:
-        raise PhotophoneError(f"{path} is not a readable audio file") from error
+        raise FiletapeError(f"{path} is not a readable audio file") from error
     return samples
 
 
@@ -357,9 +357,9 @@ def read_pixel_stream(samples, path, max_pixels=None):
     has_icc = bool(code & FLAG_ICC)
     code &= ~FLAG_ICC
     if magic != MAGIC or code >= len(MODES) or len(MODES[code]) != channels:
-        raise PhotophoneError(f"{path} was not made by this tool")
+        raise FiletapeError(f"{path} was not made by this tool")
     if max_pixels and width * height > max_pixels:
-        raise PhotophoneError(f"{path} is too large; the limit is {max_pixels:,} pixels")
+        raise FiletapeError(f"{path} is too large; the limit is {max_pixels:,} pixels")
     metadata_size = HEADER.size
     icc_profile = None
     if has_icc:
@@ -369,18 +369,18 @@ def read_pixel_stream(samples, path, max_pixels=None):
         icc_profile = unpack_icc(stored_bytes(stream, start, metadata_size, path), path)
     frames = math.ceil(metadata_size / channels)
     if width * height == 0 or len(samples) - frames != width * height:
-        raise PhotophoneError(f"{path} is truncated or corrupted")
+        raise FiletapeError(f"{path} is truncated or corrupted")
     mode = MODES[code]
     residuals = samples[frames:].astype(np.int32).reshape(height, width, channels)
     pixels = residuals_to_pixels(residuals, mode)
     if pixels.min() < 0 or pixels.max() > 255:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     pixels = pixels.astype(np.uint8)
     actual = zlib.crc32(pixels.tobytes())
     if icc_profile:
         actual = zlib.crc32(icc_profile, actual)
     if actual != crc:
-        raise PhotophoneError(f"{path} is corrupted: checksum mismatch")
+        raise FiletapeError(f"{path} is corrupted: checksum mismatch")
     return pixels, mode, icc_profile
 
 
@@ -390,13 +390,13 @@ def load_image(path, max_pixels=None):
         with Image.open(path, formats=FORMATS) as image:
             image_format = image.format
             if max_pixels and image.width * image.height > max_pixels:
-                raise PhotophoneError(f"{path} is too large; the limit is {max_pixels:,} pixels")
+                raise FiletapeError(f"{path} is too large; the limit is {max_pixels:,} pixels")
             if getattr(image, "n_frames", 1) > 1:
-                raise PhotophoneError(f"{path} is animated; only single images are supported")
+                raise FiletapeError(f"{path} is animated; only single images are supported")
             # Pillow reduces 16-bit RGB to 8 bits without complaint, so check the raw layout.
             raw_layout = str(image.tile[0][3]) if image.tile else ""
             if ";16" in raw_layout or image.mode.startswith("I") or image.mode == "F":
-                raise PhotophoneError(f"{path} uses 16-bit or higher depth; only 8-bit is supported")
+                raise FiletapeError(f"{path} uses 16-bit or higher depth; only 8-bit is supported")
             icc_profile = image.info.get("icc_profile")
             if "transparency" in image.info or image.mode == "PA":
                 image = image.convert("RGBA")
@@ -405,14 +405,14 @@ def load_image(path, max_pixels=None):
             elif image.mode == "1":
                 image = image.convert("L")
             if image.mode not in MODES:
-                raise PhotophoneError(f"{path} uses unsupported colour mode {image.mode}")
+                raise FiletapeError(f"{path} uses unsupported colour mode {image.mode}")
             pixels = np.asarray(image, dtype=np.uint8)
     except Image.UnidentifiedImageError as error:
-        raise PhotophoneError(f"{path} is not a supported image") from error
+        raise FiletapeError(f"{path} is not a supported image") from error
     except Image.DecompressionBombError as error:
-        raise PhotophoneError(f"{path} is too large") from error
+        raise FiletapeError(f"{path} is too large") from error
     except (OSError, ValueError) as error:
-        raise PhotophoneError(f"cannot read {path}: {error}") from error
+        raise FiletapeError(f"cannot read {path}: {error}") from error
     if pixels.ndim == 2:
         pixels = pixels[..., np.newaxis]
     return pixels, image.mode, icc_profile, image_format
@@ -423,14 +423,14 @@ def temp_path_for(output):
     try:
         handle, name = tempfile.mkstemp(suffix=output.suffix, dir=output.parent)
     except OSError as error:
-        raise PhotophoneError(f"cannot write to {output.parent}: {error}") from error
+        raise FiletapeError(f"cannot write to {output.parent}: {error}") from error
     os.close(handle)
     return name
 
 
 def check_output(output, force):
     if output.exists() and not force:
-        raise PhotophoneError(f"{output} already exists; pass --force to overwrite it")
+        raise FiletapeError(f"{output} already exists; pass --force to overwrite it")
 
 
 def write_stored(path, data):
@@ -512,7 +512,7 @@ def encode(source, output, force=False, max_pixels=None, effort=JXL_EFFORT, name
     try:
         pixels, mode, icc_profile, image_format = load_image(source, max_pixels)
         height, width, _ = pixels.shape
-    except PhotophoneError:  # Not an image we can model, so it is carried as plain data.
+    except FiletapeError:  # Not an image we can model, so it is carried as plain data.
         pixels = mode = icc_profile = None
         image_format = "data"
         height = width = 0
@@ -536,7 +536,7 @@ def encode(source, output, force=False, max_pixels=None, effort=JXL_EFFORT, name
             try:
                 write(temp)
                 restored = restore(temp)
-            except (RuntimeError, PhotophoneError):  # Some files can't use every method.
+            except (RuntimeError, FiletapeError):  # Some files can't use every method.
                 os.remove(temp)
                 continue
             smaller = best is None or os.path.getsize(temp) < os.path.getsize(best)
@@ -547,7 +547,7 @@ def encode(source, output, force=False, max_pixels=None, effort=JXL_EFFORT, name
             else:
                 os.remove(temp)
         if best is None:
-            raise PhotophoneError("internal error: no method restored the image; nothing was written")
+            raise FiletapeError("internal error: no method restored the image; nothing was written")
         frames = sf.info(best).frames
         os.replace(best, output)
     finally:
@@ -597,7 +597,7 @@ def decode(source, output=None, force=False, max_pixels=None):
         mode, has_profile = restored.mode, bool(restored.icc_profile)
     output = output or source.with_suffix(f".decoded{suffix}")
     if output.suffix.lower() not in ALLOWED_SUFFIXES[suffix]:
-        raise PhotophoneError(f"this audio holds a {suffix} image, so the output must be a {suffix} file")
+        raise FiletapeError(f"this audio holds a {suffix} image, so the output must be a {suffix} file")
     check_output(output, force)
     temp = temp_path_for(output)
     try:
@@ -633,7 +633,7 @@ def report_encode(source, output, result):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="photophone", description=__doc__)
+    parser = argparse.ArgumentParser(prog="filetape", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     for name, summary in (
         ("encode", "any file to FLAC (default output: INPUT with a .flac suffix)"),
@@ -649,7 +649,7 @@ def main(argv=None):
 
     try:
         if not args.input.is_file():
-            raise PhotophoneError(f"{args.input} does not exist")
+            raise FiletapeError(f"{args.input} does not exist")
         if args.command == "encode":
             output = args.output or args.input.with_suffix(".flac")
             effort = JXL_MAX_EFFORT if args.max else JXL_EFFORT
@@ -657,7 +657,7 @@ def main(argv=None):
         else:
             result = decode(args.input, args.output, args.force)
             print(f"{args.input} -> {result['path']}, checksum verified")
-    except PhotophoneError as error:
+    except FiletapeError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0

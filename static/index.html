@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Photophone</title>
+  <title>Filetape</title>
   <meta name="description" content="Turn any file into a FLAC audio file and get it back exactly.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,7 @@
 <body>
   <header class="sleeve">
     <nav class="top" aria-label="Main">
-      <span class="brand"><svg class="mark" viewBox="0 0 22 18" aria-hidden="true"><rect x="0" y="6" width="3" height="6"/><rect x="5" y="2" width="3" height="14"/><rect x="10" y="0" width="3" height="18"/><rect x="15" y="4" width="3" height="10"/><rect x="20" y="7" width="2" height="4"/></svg>Photophone</span>
+      <span class="brand"><svg class="mark" viewBox="0 0 22 18" aria-hidden="true"><rect x="0" y="6" width="3" height="6"/><rect x="5" y="2" width="3" height="14"/><rect x="10" y="0" width="3" height="18"/><rect x="15" y="4" width="3" height="10"/><rect x="20" y="7" width="2" height="4"/></svg>Filetape</span>
       <ul>
         <li><a href="#deck">Try it</a></li>
         <li><a href="#how">How it works</a></li>
@@ -24,7 +24,7 @@
     <h1><span>Turn any file into sound.</span> <em>Get every byte back.</em></h1>
     <canvas id="tape" role="img" aria-label="A tape deck. Data leaves an image, travel onto moving tape and become a waveform, then the tape reverses and rebuilds the image exactly."></canvas>
     <div class="sleeve-foot">
-      <p class="lede">Photophone turns any file into a FLAC audio file and rebuilds it exactly, with its original name. Documents, code, programs and images: if it's a file, it can be sound.</p>
+      <p class="lede">Filetape turns any file into a FLAC audio file and rebuilds it exactly, with its original name. Documents, code, programs and images: if it's a file, it can be sound.</p>
       <a class="button loud" href="#deck">Load a file</a>
     </div>
   </header>
@@ -37,7 +37,7 @@
       <div class="plate">
         <span class="engraved">Input</span>
         <div id="drop" class="drop">
-          <p class="drop-title">Drop any file, a Photophone audio file or a zip of a folder</p>
+          <p class="drop-title">Drop any file, a Filetape audio file or a zip of a folder</p>
           <button id="choose" class="button loud" type="button">Choose a file</button>
           <input id="file" type="file" hidden>
           <p class="hint">Any file up to 40 MB. Images up to 50 megapixels get extra compression. Zips up to 500 MB and 1,000 files.</p>
@@ -94,10 +94,10 @@
           <span class="engraved">Scroll. Sizes in the race are illustrative, and show an image.</span>
           <h2>What happens <em>inside</em></h2>
           <div class="say" id="method-say">
-            <div class="on"><strong>1. Read the file</strong><p>Photophone reads every byte and notes the name. If it's an image, it also reads the pixels and the colour profile.</p></div>
+            <div class="on"><strong>1. Read the file</strong><p>Filetape reads every byte and notes the name. If it's an image, it also reads the pixels and the colour profile.</p></div>
             <div><strong>2. Race the methods</strong><p>Images race JPEG XL, prediction errors and the file as it is. Any other file is compressed with LZMA, or stored as it is if that's smaller.</p></div>
             <div><strong>3. Bytes become sound</strong><p>Every two bytes of the winner become one 16-bit audio sample. Good compression looks random, so this sounds like loud white noise.</p></div>
-            <div><strong>4. Press the tape</strong><p>FLAC is the carrier, adding about 0.2%. Photophone decodes the result and compares it with your file before it hands you anything.</p></div>
+            <div><strong>4. Press the tape</strong><p>FLAC is the carrier, adding about 0.2%. Filetape decodes the result and compares it with your file before it hands you anything.</p></div>
           </div>
           <div class="steps" id="method-steps"><i class="on"></i><i></i><i></i><i></i></div>
         </div>

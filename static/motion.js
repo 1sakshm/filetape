@@ -40,7 +40,7 @@
   // The level both meters show: real audio while it plays, and tape noise otherwise.
   const levels = { now: 0.3, data: null };
   function level(t, running) {
-    const analyser = window.photophoneAnalyser;
+    const analyser = window.filetapeAnalyser;
     if (analyser) {
       levels.data ??= new Uint8Array(analyser.fftSize);
       if (levels.data.length !== analyser.fftSize) levels.data = new Uint8Array(analyser.fftSize);
@@ -285,7 +285,7 @@
     const canvas = $("broken"), input = $("damage"), label = $("damage-text"), COLS = 48, ROWS = 36, cells = picture(COLS, ROWS);
     let auto = 0, touched = false;
     input.addEventListener("input", () => { touched = true; });
-    const MESSAGES = [[0, "Samples intact. Checksum matches."], [1, "A few samples changed. The checksum no longer matches, so Photophone refuses the file."], [50, "This is what MP3 or AAC does. The bytes inside the audio are no longer the same bytes."], [85, "Nothing left to rebuild."]];
+    const MESSAGES = [[0, "Samples intact. Checksum matches."], [1, "A few samples changed. The checksum no longer matches, so Filetape refuses the file."], [50, "This is what MP3 or AAC does. The bytes inside the audio are no longer the same bytes."], [85, "Nothing left to rebuild."]];
     return (t) => {
       const { g, W, H } = fit(canvas);
       if (!touched && !still && document.visibilityState === "visible") { auto = 50 + 50 * Math.sin(t * 0.5 - 1.57); input.value = Math.round(auto); }
@@ -324,7 +324,7 @@
     const canvas = $("scope");
     let bins = null;
     return () => {
-      const analyser = window.photophoneAnalyser;
+      const analyser = window.filetapeAnalyser;
       const { g, W, H } = fit(canvas);
       g.clearRect(0, 0, W, H);
       if (!analyser || !W) return;
